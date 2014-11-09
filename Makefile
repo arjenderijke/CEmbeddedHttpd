@@ -3,7 +3,10 @@ version = 0.0.1
 tarname = $(package)
 distdir = $(tarname)-$(version)
 
-all clean cembeddedhttpd:
+prefix=/usr/local
+export prefix
+
+all clean check install cembeddedhttpd:
 	cd src && $(MAKE) $@
 
 dist: $(distdir).tar.gz
@@ -18,8 +21,16 @@ $(distdir): FORCE
 	cp src/Makefile $(distdir)/src
 	cp src/main.c $(distdir)/src
 
+distcheck: $(distdir).tar.gz
+	gzip -cd $(distdir).tar.gz| tar xvf -
+	cd $(distdir) && $(MAKE) all
+	cd $(distdir) && $(MAKE) check
+	cd $(distdir) && $(MAKE) clean
+	rm -rf $(distdir)
+	@echo "*** Package $(distdir).tar.gz is ready for distribution ***"
+
 FORCE:
 	-rm $(distdir).tar.gz > /dev/null 2>&1
 	-rm -rf $(distdir) > /dev/null 2>&1
 
-.PHONY: FORCE all clean dist
+.PHONY: FORCE all clean check dist distcheck install

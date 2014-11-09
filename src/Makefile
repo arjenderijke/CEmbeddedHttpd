@@ -6,4 +6,12 @@ cembeddedhttpd: main.c
 clean:
 	-rm cembeddedhttpd
 
-.PHONY: all clean
+check: all
+	./cembeddedhttpd | grep "Hello from .*cembeddedhttpd!"
+	@echo "*** ALL TESTS PASSED ***"
+
+install:
+	install -d $(prefix)/bin
+	install -m 0755 cembeddedhttpd $(prefix)/bin
+
+.PHONY: all clean check install

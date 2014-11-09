@@ -14,4 +14,7 @@ install:
 	install -d $(prefix)/bin
 	install -m 0755 cembeddedhttpd $(prefix)/bin
 
-.PHONY: all clean check install
+uninstall:
+	-rm $(prefix)/bin/cembeddedhttpd
+
+.PHONY: all clean check install uninstall

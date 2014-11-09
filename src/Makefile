@@ -1,7 +1,9 @@
 all: cembeddedhttpd
 
+CFLAGS = -g -O0
+
 cembeddedhttpd: main.c
-	gcc -g -O0 -o $@ main.c
+	$(CC) -DCFGDIR="\"$(sysconfdir)\"" $(CPPFLAGS) $(CFLAGS) -o $@ main.c
 
 clean:
 	-rm cembeddedhttpd
@@ -11,10 +13,10 @@ check: all
 	@echo "*** ALL TESTS PASSED ***"
 
 install:
-	install -d $(prefix)/bin
-	install -m 0755 cembeddedhttpd $(prefix)/bin
+	install -d $(DESTDIR)$(bindir)
+	install -m 0755 cembeddedhttpd $(DESTDIR)$(bindir)
 
 uninstall:
-	-rm $(prefix)/bin/cembeddedhttpd
+	-rm $(DESTDIR)$(bindir)/cembeddedhttpd
 
 .PHONY: all clean check install uninstall

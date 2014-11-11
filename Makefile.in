@@ -28,7 +28,9 @@ $(distdir): FORCE
 	mkdir -p $(distdir)/src
 	cp $(srcdir)/configure.ac $(distdir)
 	cp $(srcdir)/configure $(distdir)
+	cp $(srcdir)/config.h.in $(distdir)
 	cp $(srcdir)/Makefile.in $(distdir)
+	cp $(srcdir)/install-sh $(distdir)
 	cp $(srcdir)/src/Makefile.in $(distdir)/src
 	cp $(srcdir)/src/main.c $(distdir)/src
 
@@ -47,6 +49,11 @@ distcheck: $(distdir).tar.gz
 	cd $(distdir) && $(MAKE) clean
 	rm -rf $(distdir)
 	@echo "*** Package $(distdir).tar.gz is ready for distribution ***"
+
+distclean:
+	cd src && $(MAKE) distclean
+	-rm -rf autom4te
+	-rm configure config.status config.log Makefile config.h
 
 Makefile: Makefile.in config.status
 	./config.status $@

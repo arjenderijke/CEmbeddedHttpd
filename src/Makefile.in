@@ -20,10 +20,13 @@ all: cembeddedhttpd
 CFLAGS = -g -O0
 
 cembeddedhttpd: main.c
-	$(CC) -DCFGDIR="\"$(sysconfdir)\"" $(CPPFLAGS) $(CFLAGS) -o $@ main.c
+	$(CC) -DCFGDIR="\"$(sysconfdir)\"" $(CPPFLAGS) $(CFLAGS) -o $@ $(srcdir)/main.c
 
 clean:
 	-rm cembeddedhttpd
+
+distclean: clean
+	-rm Makefile
 
 check: all
 	./cembeddedhttpd | grep "Hello from .*cembeddedhttpd!"

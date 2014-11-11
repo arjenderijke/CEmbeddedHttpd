@@ -6,3 +6,5 @@ configure
 config.log
 config.status
 *Makefile
+autoscan.log
+install-sh

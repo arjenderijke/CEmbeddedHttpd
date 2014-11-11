@@ -52,8 +52,9 @@ distcheck: $(distdir).tar.gz
 
 distclean:
 	cd src && $(MAKE) distclean
-	-rm -rf autom4te
-	-rm configure config.status config.log Makefile config.h
+	-rm -rf autom4te.cache
+	-rm configure config.status config.log Makefile config.h autoscan.log
+	-rm $(distdir).tar.gz
 
 Makefile: Makefile.in config.status
 	./config.status $@

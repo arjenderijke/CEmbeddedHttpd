@@ -8,3 +8,4 @@ config.status
 *Makefile
 autoscan.log
 install-sh
+config.h

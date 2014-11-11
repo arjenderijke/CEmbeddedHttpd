@@ -20,7 +20,7 @@ all: cembeddedhttpd
 CFLAGS = -g -O0
 
 cembeddedhttpd: main.c
-	$(CC) -DCFGDIR="\"$(sysconfdir)\"" $(CPPFLAGS) $(CFLAGS) -o $@ $(srcdir)/main.c
+	$(CC) -DCFGDIR="\"$(sysconfdir)\"" -I. -I$(srcdir) -I.. $(CPPFLAGS) $(CFLAGS) -o $@ $(srcdir)/main.c
 
 clean:
 	-rm cembeddedhttpd

@@ -9,3 +9,4 @@ config.status
 autoscan.log
 install-sh
 config.h
+configure.scan

@@ -1,3 +1,13 @@
 CEmbeddedHttpd
 
 - autoreconf
+- autogen.sh
+
+dpkg --get-selections
+dpkg --get-selections|grep http
+dpkg -L libmicrohttpd10
+dpkg -L libmicrohttpd-dev
+info microhttpd
+
+https://www.gnu.org/software/libmicrohttpd/
+https://www.gnu.org/software/libmicrohttpd/tutorial.html

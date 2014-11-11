@@ -1,5 +1,7 @@
 2014-11-11  Arjen de Rijke  <arjenderijke@gmail.com>
 
+	* src/main.c (answer_to_connection): add hello_browser example code and handcode changes to compilation in makefile template
+
 	* configure.ac: Use version created by autoscan
 
 	* Makefile.in (Makefile): Use makefile templates

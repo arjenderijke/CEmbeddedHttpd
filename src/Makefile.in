@@ -17,10 +17,10 @@ VPATH  = @srcdir@
 
 all: cembeddedhttpd
 
-CFLAGS = -g -O0
+CFLAGS = -g -O0 -L/usr/lib/x86_64-linux-gnu -lmicrohttpd
 
 cembeddedhttpd: main.c
-	$(CC) -DCFGDIR="\"$(sysconfdir)\"" -I. -I$(srcdir) -I.. $(CPPFLAGS) $(CFLAGS) -o $@ $(srcdir)/main.c
+	$(CC) -DCFGDIR="\"$(sysconfdir)\"" -I. -I$(srcdir) -I.. -I/usr/include $(CPPFLAGS) $(CFLAGS) -o $@ $(srcdir)/main.c
 
 clean:
 	-rm cembeddedhttpd

@@ -1,4 +1,6 @@
 2014-11-11  Arjen de Rijke  <arjenderijke@gmail.com>
 
+	* Makefile.in (Makefile): Use makefile templates
+
 	* configure.ac: Add autotools support
 

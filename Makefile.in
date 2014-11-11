@@ -1,19 +1,19 @@
-# Makefile.  Generated from Makefile.in by configure.
+# @configure_input@
 
 # Package-specific substitution variables
-package = CEmbeddedHttpd
-version = 0.0.1
-tarname = cembeddedhttpd
+package = @PACKAGE_NAME@
+version = @PACKAGE_VERSION@
+tarname = @PACKAGE_TARNAME@
 distdir = $(tarname)-$(version)
 
 # Prefix-specifix substitution variables
-prefix      = /usr/local
-exec_prefix = ${prefix}
-bindir      = ${exec_prefix}/bin
+prefix      = @prefix@
+exec_prefix = @exec_prefix@
+bindir      = @bindir@
 
 # VPATH-related substitution variables
-srcdir = .
-
+srcdir = @srcdir@
+VPATH  = @srcdir@
 
 all clean check install uninstall cembeddedhttpd:
 	cd src && $(MAKE) $@

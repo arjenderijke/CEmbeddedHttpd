@@ -1,3 +1,7 @@
 *~
 *tar.gz
 src/cembeddedhttpd
+autom4te.cache
+configure
+config.log
+config.status

@@ -10,3 +10,11 @@ autoscan.log
 install-sh
 config.h
 configure.scan
+#Makefile.in
+aclocal.m4
+depcomp
+missing
+*o
+install-sh
+stamp-h1
+.deps

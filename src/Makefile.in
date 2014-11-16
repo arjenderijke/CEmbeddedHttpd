@@ -15,12 +15,21 @@ bindir      = @bindir@
 srcdir = @srcdir@
 VPATH  = @srcdir@
 
+# Tool-specific substitution variables
+CC              = @CC@
+DEFS            = @DEFS@
+LIBS            = @LIBS@
+CFLAGS          = @CFLAGS@
+CPPFLAGS        = @CPPFLAGS@
+INSTALL         = @INSTALL@
+INSTALL_DATA    = @INSTALL_DATA@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_SCRITPT = @INSTALL_SCRIPT@
+
 all: cembeddedhttpd
 
-CFLAGS = -g -O0 -L/usr/lib/x86_64-linux-gnu -lmicrohttpd
-
 cembeddedhttpd: main.c
-	$(CC) -DCFGDIR="\"$(sysconfdir)\"" -I. -I$(srcdir) -I.. -I/usr/include $(CPPFLAGS) $(CFLAGS) -o $@ $(srcdir)/main.c
+	$(CC) $(CFLAGS) $(DEFS)  $(CPPFLAGS) -DCFGDIR="\"$(sysconfdir)\"" -I. -I$(srcdir) -I.. -o $@ $(srcdir)/main.c $(LIBS)
 
 clean:
 	-rm cembeddedhttpd
@@ -33,8 +42,8 @@ check: all
 	@echo "*** ALL TESTS PASSED ***"
 
 install:
-	install -d $(DESTDIR)$(bindir)
-	install -m 0755 cembeddedhttpd $(DESTDIR)$(bindir)
+	$(INSTALL) -d $(DESTDIR)$(bindir)
+	$(INSTALL_PROGRAM) -m 0755 cembeddedhttpd $(DESTDIR)$(bindir)
 
 uninstall:
 	-rm $(DESTDIR)$(bindir)/cembeddedhttpd

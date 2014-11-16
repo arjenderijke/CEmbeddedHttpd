@@ -3,11 +3,11 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
-/* Define to 1 if you have the `microhttpd' library (-lmicrohttpd). */
-#undef HAVE_LIBMICROHTTPD
-
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the <microhttpd.h> header file. */
+#undef HAVE_MICROHTTPD_H
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H

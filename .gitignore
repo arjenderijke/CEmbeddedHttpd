@@ -10,7 +10,7 @@ autoscan.log
 install-sh
 config.h
 configure.scan
-#Makefile.in
+Makefile.in
 aclocal.m4
 depcomp
 missing

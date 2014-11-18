@@ -18,3 +18,11 @@ missing
 install-sh
 stamp-h1
 .deps
+*a
+compile
+config.guess
+config.sub
+m4
+ltmain.sh
+libtool
+.libs

@@ -4,6 +4,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <stdbool.h>
 
 #ifndef CFGDIR
 #define CFGDIR "/etc"
@@ -37,14 +39,33 @@ answer_to_connection (void *cls, struct MHD_Connection *connection,
 	return ret;
 }
 
-/*
-  int main(int argc, char * argv[])
-  {
-  printf("Hello from %s!\n", argv[0]);
-  return 0;
-  }
-*/
+int main(int argc, char **argv) 
+{
+	bool versionflag = false;
+	int c;
 
+	while ((c = getopt (argc, argv, "v")) != -1) {
+		switch (c) {
+		case 'v':
+			versionflag = true;
+			break;
+		case '?':
+			if (isprint (optopt)) {
+				fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+			}
+			return 1;
+		default:
+			abort ();
+		}
+	}
+
+	if (versionflag) {
+		printf("version\n");
+	}
+	return 0;
+}
+
+/*
 int
 main ()
 {
@@ -60,3 +81,4 @@ main ()
 	MHD_stop_daemon (daemon);
 	return 0;
 }
+*/

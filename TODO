@@ -1,0 +1,6 @@
+Add DEBUG parameter to configure
+Add TODO file to distribution
+Add make targets for deb and rpm
+Add version parameter to application and handle value by configure
+Handle enable/disable examples in configure
+Add handling of commandline parameters

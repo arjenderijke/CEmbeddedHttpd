@@ -17,6 +17,7 @@ AC_SEARCH_LIBS([MHD_start_daemon], [microhttpd], [have_microhttpd=yes])
 
 # Checks for header files.
 AC_CHECK_HEADERS([stdlib.h sys/socket.h])
+AC_CHECK_HEADER_STDBOOL
 
 if test "x${have_microhttpd}" = xyes; then
    AC_CHECK_HEADERS([microhttpd.h], [], [have_microhttpd=no])

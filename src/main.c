@@ -13,6 +13,7 @@
 #endif
 
 #include "libexamples.h"
+#include "libqueryhandler.h"
 
 const char cfgdir[FILENAME_MAX] = CFGDIR;
 
@@ -20,10 +21,11 @@ int main(int argc, char ** argv)
 {
     bool versionflag = false;
     bool exampleflag = false;
+    bool queryflag = false;
     int c;
     char * cvalue = NULL;
 
-    while ((c = getopt (argc, argv, "e:v")) != -1) {
+    while ((c = getopt (argc, argv, "e:vm")) != -1) {
 	switch (c) {
 	case 'v':
 	    versionflag = true;
@@ -31,6 +33,9 @@ int main(int argc, char ** argv)
 	case 'e':
 	    exampleflag = true;
 	    cvalue = optarg;
+	    break;
+	case 'm':
+	    queryflag = true;
 	    break;
 	case '?':
 	    if (optopt == 'e') {
@@ -56,6 +61,10 @@ int main(int argc, char ** argv)
 
     if (exampleflag) {
 	run_example(1);
+    }
+
+    if (queryflag) {
+	run_query_handler();
     }
 
     return 0;

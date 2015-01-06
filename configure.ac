@@ -45,6 +45,8 @@ AC_CONFIG_FILES([Makefile
 		 common/Makefile
 		 libexamples/include/Makefile
 		 libexamples/Makefile
+		 libqueryhandler/include/Makefile
+		 libqueryhandler/Makefile
                  src/Makefile])
 AC_OUTPUT
 

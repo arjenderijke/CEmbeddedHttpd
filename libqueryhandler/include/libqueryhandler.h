@@ -1,0 +1,4 @@
+#ifndef LIBQUERYHANDLER_H_INCLUDED
+#define LIBQUERYHANDLER_H_INCLUDED
+void run_query_handler();
+#endif /* LIBQUERYHANDLER_H_INCLUDED */

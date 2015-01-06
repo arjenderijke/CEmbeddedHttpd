@@ -1,1 +1,1 @@
-SUBDIRS = common libexamples src
+SUBDIRS = common libexamples libqueryhandler src

@@ -18,6 +18,9 @@ handle_request_uri(const char *url, int *use_request_handler)
 {
     UriParserStateA state;
     UriUriA uri;
+    UriQueryListA * queryList;
+    UriQueryListA * nextQueryElement;
+    int itemCount = -1;
     
     state.uri = &uri;
     if (uriParseUriA(&state, url) != URI_SUCCESS) {
@@ -56,6 +59,27 @@ handle_request_uri(const char *url, int *use_request_handler)
 	 * Relative paths is an error
 	 */
 	*use_request_handler = HTTP_API_HANDLE_ERROR;
+    }
+
+    /*
+     * Only handle query options if the request was
+     * a statement.
+     */
+    if (*use_request_handler == HTTP_API_HANDLE_STATEMENT) {
+	if (uriDissectQueryMallocA(&queryList, &itemCount, uri.query.first,
+				   uri.query.afterLast) != URI_SUCCESS) {
+	    /* Failure */
+	    *use_request_handler = HTTP_API_HANDLE_ERROR;
+	} else {
+	    if (itemCount >= 0) {
+		nextQueryElement = queryList;
+		while (nextQueryElement != NULL) {
+		    printf ("Query key %s value %s\n", nextQueryElement->key, nextQueryElement->value);
+		    nextQueryElement = nextQueryElement->next;
+		}
+	    }
+	    uriFreeQueryListA(queryList);
+	}
     }
 
     uriFreeUriMembersA(&uri);
@@ -97,6 +121,9 @@ handle_request (void *cls, struct MHD_Connection *connection,
     }
 
     MHD_get_connection_values (connection, MHD_HEADER_KIND, print_out_key,
+			       NULL);
+
+    MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND, print_out_key,
 			       NULL);
 
     const char *page = "<html><body>Hello, browser!</body></html>";

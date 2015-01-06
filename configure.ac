@@ -36,6 +36,37 @@ if test "x{have_microhttpd}" = xno; then
    ------------------------------])
 fi
 
+have_liburiparser=yes
+AC_ARG_ENABLE(liburiparser,
+	AS_HELP_STRING([--with-liburiparser=DIR],
+		[liburiparser library is installed in DIR]),
+	have_liburiparser="$withval")
+
+if test "x$have_liburiparser" = xauto; then
+      PKG_CHECK_MODULES([liburiparser], [liburiparser],
+      		[have_liburiparser=yes],
+		[have_liburiparser=no; why_have_liburiparser="(liburiparser not found)"])
+fi
+
+URIPARSER_MISSING="Please install uriparser 0.6.4 or later."
+
+AC_CHECK_LIB(uriparser, uriParseUriA,, AC_MSG_ERROR(${URIPARSER_MISSING}))
+AC_CHECK_HEADER(uriparser/Uri.h,, AC_MSG_ERROR(${URIPARSER_MISSING}))
+
+#if test "x${have_liburiparser}" = xyes; then
+#   AC_CHECK_HEADERS([uriparser/Uri.h], [], [have_liburiparser=no])
+#fi
+
+#AC_SEARCH_LIBS([uriParseUriA], [liburiparser], [have_liburiparser=yes])
+
+if test "x{have_liburiparser}" = xno; then
+   AC_MSG_ERROR([
+   ------------------------------
+     The liburiparser library and header file are
+     required.
+   ------------------------------])
+fi
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
 

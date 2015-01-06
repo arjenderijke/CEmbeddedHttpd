@@ -7,10 +7,28 @@
 #include <sys/socket.h>
 
 #include <microhttpd.h>
+#include <uriparser/Uri.h>
 
 #include "libqueryhandler.h"
 
 #define PORT 8888
+
+static int
+print_out_uri(const char *url)
+{
+    UriParserStateA state;
+    UriUriA uri;
+
+    state.uri = &uri;
+    if (uriParseUriA(&state, url) != URI_SUCCESS) {
+	/* Failure */
+	uriFreeUriMembersA(&uri);
+	return MHD_NO;
+    }
+
+    uriFreeUriMembersA(&uri);
+    return MHD_YES;
+}
 
 static int
 print_out_key (void *cls, enum MHD_ValueKind kind, const char *key,
@@ -27,6 +45,8 @@ handle_request (void *cls, struct MHD_Connection *connection,
 		size_t *upload_data_size, void **con_cls)
 {
     printf ("New %s request for %s using version %s\n", method, url, version);
+
+    print_out_uri(url);
 
     MHD_get_connection_values (connection, MHD_HEADER_KIND, print_out_key,
 			       NULL);

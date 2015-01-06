@@ -14,16 +14,48 @@
 #define PORT 8888
 
 static int
-print_out_uri(const char *url)
+handle_request_uri(const char *url, int *use_request_handler)
 {
     UriParserStateA state;
     UriUriA uri;
-
+    
     state.uri = &uri;
     if (uriParseUriA(&state, url) != URI_SUCCESS) {
 	/* Failure */
 	uriFreeUriMembersA(&uri);
 	return MHD_NO;
+    }
+
+    if (uri.absolutePath) {
+	if (uri.pathHead != NULL) {
+	    if (uri.pathHead->next == NULL) {
+		//printf ("uri: %s\n", uri.pathHead->text.first);
+		if (strcmp(uri.pathHead->text.first, HTTP_API_HELP_PATH) == 0) {
+		    *use_request_handler = HTTP_API_HANDLE_HELP;
+		}
+		if (strcmp(uri.pathHead->text.first, HTTP_API_VERSION_PATH) == 0) {
+		    *use_request_handler = HTTP_API_HANDLE_VERSION;
+		}
+		if (strcmp(uri.pathHead->text.first, HTTP_API_STATEMENT_PATH) == 0) {
+		    *use_request_handler = HTTP_API_HANDLE_STATEMENT;
+		}
+	    } else {
+		/* 
+		 * More than one path is an error
+		 */
+		*use_request_handler = HTTP_API_HANDLE_ERROR;
+	    }
+	} else {
+	    /*
+	     * Assume that query parameters exists
+	     */
+	    *use_request_handler = HTTP_API_HANDLE_STATEMENT;
+	}
+    } else {
+	/*
+	 * Relative paths is an error
+	 */
+	*use_request_handler = HTTP_API_HANDLE_ERROR;
     }
 
     uriFreeUriMembersA(&uri);
@@ -44,9 +76,25 @@ handle_request (void *cls, struct MHD_Connection *connection,
 		const char *version, const char *upload_data,
 		size_t *upload_data_size, void **con_cls)
 {
+    int use_request_handler;
+
     printf ("New %s request for %s using version %s\n", method, url, version);
 
-    print_out_uri(url);
+    handle_request_uri(url, &use_request_handler);
+
+    switch(use_request_handler) {
+    case HTTP_API_HANDLE_HELP:
+	printf ("help");
+	break;
+    case HTTP_API_HANDLE_VERSION:
+	printf ("version");
+	break;
+    case HTTP_API_HANDLE_STATEMENT:
+	printf ("statement");
+	break;
+    default:
+	printf ("error");
+    }
 
     MHD_get_connection_values (connection, MHD_HEADER_KIND, print_out_key,
 			       NULL);

@@ -1,4 +1,19 @@
 #ifndef LIBQUERYHANDLER_H_INCLUDED
 #define LIBQUERYHANDLER_H_INCLUDED
+
+#define HTTP_API_HELP_PATH "help"
+#define HTTP_API_VERSION_PATH "version"
+#define HTTP_API_STATEMENT_PATH "statement"
+#define HTTP_API_LANGUAGE_PATH "language"
+
+#define HTTP_QUERY_VERSION "v"
+#define HTTP_QUERY_STATEMENT "s"
+#define HTTP_QUERY_LANGUAGE "l"
+
+#define HTTP_API_HANDLE_ERROR -1
+#define HTTP_API_HANDLE_HELP 0
+#define HTTP_API_HANDLE_VERSION 1
+#define HTTP_API_HANDLE_STATEMENT 2
+
 void run_query_handler();
 #endif /* LIBQUERYHANDLER_H_INCLUDED */

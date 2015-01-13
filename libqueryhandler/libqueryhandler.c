@@ -16,37 +16,55 @@
 static int
 mock_authenticate()
 {
-
+    return 0;
 }
 
 static int 
 mock_database()
 {
-
+    return 0;
 }
 
 static int
 mock_render_json()
 {
-
+    return 0;
 }
 
 static int
 mock_render_xml()
 {
-
+    return 0;
 }
 
 static int
 mock_render_text()
 {
-
+    return 0;
 }
 
 static int
 mock_cache()
 {
+    return 0;
+}
 
+static int
+error_page(char ** result_page, const int status_code)
+{
+    *result_page = (char *) malloc(100 * sizeof(char));
+
+    sprintf(*result_page, "<html><body>Hello, browser! %i</body></html>", status_code);
+    return 0;
+}
+
+static int
+result_page(char ** result_page, const int status_code)
+{
+    *result_page = (char *) malloc(100 * sizeof(char));
+
+    sprintf(*result_page, "<html><body>Hello, browser! %i</body></html>", status_code);
+    return 0;
 }
 
 static int
@@ -168,12 +186,9 @@ handle_request (void *cls, struct MHD_Connection *connection,
 		const char *version, const char *upload_data,
 		size_t *upload_data_size, void **con_cls)
 {
-    const char *page = "<html><body>Hello, browser!</body></html>";
-    const char *page200 = "<html><body>Hello, browser! 200</body></html>";
-    const char *page404 = "<html><body>Hello, browser! 404</body></html>";
-    const char *page405 = "<html><body>Hello, browser! 405</body></html>";
-    const char *page505 = "<html><body>Hello, browser! 505</body></html>";
-
+    // TODO: check that memory of page is released by response function
+    char *page;
+    char *page2 = "help";
     struct MHD_Response *response;
     int ret;
   
@@ -188,9 +203,10 @@ handle_request (void *cls, struct MHD_Connection *connection,
     if (strcmp(version, MHD_HTTP_VERSION_1_1) != 0) {
 	return_code = MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED;
 
+	error_page(&page, return_code);
 	response =
-	    MHD_create_response_from_buffer (strlen (page505), (void *) page505, 
-					     MHD_RESPMEM_PERSISTENT);
+	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
+					     MHD_RESPMEM_MUST_FREE);
 	ret = MHD_queue_response (connection, return_code, response);
 	MHD_destroy_response (response);
 
@@ -201,9 +217,10 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	(strcmp(method, MHD_HTTP_METHOD_POST) != 0)) {
 	return_code = MHD_HTTP_METHOD_NOT_ALLOWED;
 
+	error_page(&page, return_code);
 	response =
-	    MHD_create_response_from_buffer (strlen (page405), (void *) page405, 
-					     MHD_RESPMEM_PERSISTENT);
+	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
+					     MHD_RESPMEM_MUST_FREE);
 	ret = MHD_queue_response (connection, return_code, response);
 	MHD_destroy_response (response);
 
@@ -223,7 +240,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	printf ("statement\n");
 	break;
     case HTTP_API_HANDLE_MCLIENT:
-	printf ("mclient\n");
+	return_code = MHD_HTTP_NOT_IMPLEMENTED;
 	break;
     case HTTP_API_HANDLE_NOTFOUND:
 	return_code = MHD_HTTP_NOT_FOUND;
@@ -240,9 +257,10 @@ handle_request (void *cls, struct MHD_Connection *connection,
      * return an error.
      */
     if (return_code == MHD_HTTP_NOT_FOUND) {
+	error_page(&page, return_code);
 	response =
-	    MHD_create_response_from_buffer (strlen (page404), (void *) page404, 
-					     MHD_RESPMEM_PERSISTENT);
+	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
+					     MHD_RESPMEM_MUST_FREE);
 	ret = MHD_queue_response (connection, return_code, response);
 	MHD_destroy_response (response);
 
@@ -254,9 +272,11 @@ handle_request (void *cls, struct MHD_Connection *connection,
      * return an error.
      */
     if (return_code == MHD_HTTP_BAD_REQUEST) {
+	error_page(&page, return_code);
+
 	response =
-	    MHD_create_response_from_buffer (strlen (page200), (void *) page200, 
-					     MHD_RESPMEM_PERSISTENT);
+	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
+					     MHD_RESPMEM_MUST_FREE);
 	ret = MHD_queue_response (connection, return_code, response);
 	MHD_destroy_response (response);
 
@@ -272,6 +292,26 @@ handle_request (void *cls, struct MHD_Connection *connection,
     printf("querycount: %i\n", uqs.statements_found);
     printf("headercount: %i\n", rhl.headers_found);
 
+    if (mock_authenticate() == 0) {
+	if(mock_database() == 0) {
+	    if (mock_render_json() == 0) {
+		if (mock_cache() == 0) {
+		    /*
+		     * Query succeeds. default return_code
+		     */
+		} else {
+		    return_code = MHD_HTTP_NOT_MODIFIED;
+		}
+	    } else {
+		return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+	    }
+	} else {
+	    return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+	}
+    } else {
+	return_code = MHD_HTTP_UNAUTHORIZED;
+    }
+
     if (uqs.query_statement != NULL) {
 	free(uqs.query_statement);
     }
@@ -286,9 +326,10 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	free(rhl.accept);
     }
 
+    result_page(&page, return_code);
     response =
 	MHD_create_response_from_buffer (strlen (page), (void *) page, 
-					 MHD_RESPMEM_PERSISTENT);
+					 MHD_RESPMEM_MUST_FREE);
     ret = MHD_queue_response (connection, return_code, response);
     MHD_destroy_response (response);
 

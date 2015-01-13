@@ -14,19 +14,19 @@
 #define PORT 8888
 
 static int
-mock_authenticate()
+mock_authenticate(const char * username, const char * password)
 {
     return 0;
 }
 
 static int 
-mock_database()
+mock_database(const char * username, const char * query)
 {
     return 0;
 }
 
 static int
-mock_render_json()
+mock_render_json(char ** result_json)
 {
     return 0;
 }
@@ -44,7 +44,7 @@ mock_render_text()
 }
 
 static int
-mock_cache()
+mock_cache(const char * tag, const char * page)
 {
     return 0;
 }
@@ -186,14 +186,17 @@ handle_request (void *cls, struct MHD_Connection *connection,
 		const char *version, const char *upload_data,
 		size_t *upload_data_size, void **con_cls)
 {
-    // TODO: check that memory of page is released by response function
     char *page;
-    char *page2 = "help";
     struct MHD_Response *response;
     int ret;
   
     int use_request_handler = HTTP_API_HANDLE_ERROR;
     int return_code = MHD_HTTP_OK;
+
+    char * username;
+    char * password;
+    char * query;
+    char * tag;
 
     struct url_query_statements uqs = { 0, 0, false, QUERY_LANGUAGE_SQL, NULL, false };
     struct request_header_list rhl = { 0, 0, NULL, NULL, NULL };
@@ -292,10 +295,11 @@ handle_request (void *cls, struct MHD_Connection *connection,
     printf("querycount: %i\n", uqs.statements_found);
     printf("headercount: %i\n", rhl.headers_found);
 
-    if (mock_authenticate() == 0) {
-	if(mock_database() == 0) {
-	    if (mock_render_json() == 0) {
-		if (mock_cache() == 0) {
+    if (mock_authenticate(username, password) == 0) {
+	if(mock_database(username, query) == 0) {
+	    if (mock_render_json(&page) == 0) {
+		// TODO: handle no caching
+		if (mock_cache(tag, page) == 0) {
 		    /*
 		     * Query succeeds. default return_code
 		     */

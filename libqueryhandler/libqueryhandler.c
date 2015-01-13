@@ -18,9 +18,6 @@ handle_request_uri(const char *url, int *use_request_handler)
 {
     UriParserStateA state;
     UriUriA uri;
-    UriQueryListA * queryList;
-    UriQueryListA * nextQueryElement;
-    int itemCount = -1;
     
     state.uri = &uri;
     if (uriParseUriA(&state, url) != URI_SUCCESS) {
@@ -29,10 +26,9 @@ handle_request_uri(const char *url, int *use_request_handler)
 	return MHD_NO;
     }
 
-    if (uri.absolutePath) {
+    if (uri.absolutePath == 1) {
 	if (uri.pathHead != NULL) {
 	    if (uri.pathHead->next == NULL) {
-		//printf ("uri: %s\n", uri.pathHead->text.first);
 		if (strcmp(uri.pathHead->text.first, HTTP_API_HELP_PATH) == 0) {
 		    *use_request_handler = HTTP_API_HANDLE_HELP;
 		}
@@ -61,27 +57,6 @@ handle_request_uri(const char *url, int *use_request_handler)
 	*use_request_handler = HTTP_API_HANDLE_ERROR;
     }
 
-    /*
-     * Only handle query options if the request was
-     * a statement.
-     */
-    if (*use_request_handler == HTTP_API_HANDLE_STATEMENT) {
-	if (uriDissectQueryMallocA(&queryList, &itemCount, uri.query.first,
-				   uri.query.afterLast) != URI_SUCCESS) {
-	    /* Failure */
-	    *use_request_handler = HTTP_API_HANDLE_ERROR;
-	} else {
-	    if (itemCount >= 0) {
-		nextQueryElement = queryList;
-		while (nextQueryElement != NULL) {
-		    printf ("Query key %s value %s\n", nextQueryElement->key, nextQueryElement->value);
-		    nextQueryElement = nextQueryElement->next;
-		}
-	    }
-	    uriFreeQueryListA(queryList);
-	}
-    }
-
     uriFreeUriMembersA(&uri);
     return MHD_YES;
 }
@@ -94,37 +69,95 @@ print_out_key (void *cls, enum MHD_ValueKind kind, const char *key,
     return MHD_YES;
 }
 
+static int
+print_out_value (void *cls, enum MHD_ValueKind kind, const char *key,
+		 const char *value)
+{
+    char query_key;
+    struct url_query_statements * uqs = (struct url_query_statement *) cls;
+    uqs->statements_found++;
+    char * query_statement;
+
+    if (strlen(key) > 1) {
+	uqs->statements_error++;
+    } else {
+	query_key = key[0];
+	switch (query_key) {
+	case HTTP_QUERY_VERSION:
+	    uqs->query_version = true;
+	    break;
+	case HTTP_QUERY_STATEMENT:
+	    // TODO: handle malloc error
+	    uqs->query_statement = malloc(strlen(value));
+	    strcpy(uqs->query_statement, value);
+	    break;
+	case HTTP_QUERY_LANGUAGE:
+	    if (strcmp(value, "mal") == 0) {
+		uqs->query_language = QUERY_LANGUAGE_MAL;
+		break;
+	    }
+	    if (strcmp(value, "sql") == 0) {
+		uqs->query_language = QUERY_LANGUAGE_SQL;
+		break;
+	    }
+	    uqs->query_language = QUERY_LANGUAGE_UNKNOWN;
+	    uqs->statements_error++;
+	    break;
+	case HTTP_QUERY_MCLIENT:
+	    uqs->query_mclient = true;
+	    break;
+	default:
+	    uqs->statements_error++;
+	}
+    }
+    printf ("%s: %s\n", key, value);
+    return MHD_YES;
+}
+
 int
 handle_request (void *cls, struct MHD_Connection *connection,
 		const char *url, const char *method,
 		const char *version, const char *upload_data,
 		size_t *upload_data_size, void **con_cls)
 {
-    int use_request_handler;
+    int use_request_handler = 0;
+    int return_code = 0;
+
+    struct url_query_statements uqs = { 0, 0, false, QUERY_LANGUAGE_SQL, NULL, false };
 
     printf ("New %s request for %s using version %s\n", method, url, version);
 
-    handle_request_uri(url, &use_request_handler);
+    if (strcmp(version, MHD_HTTP_VERSION_1_1) == 0) {
+	handle_request_uri(url, &use_request_handler);
+    } else {
+	return_code = MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED;
+    }
 
     switch(use_request_handler) {
     case HTTP_API_HANDLE_HELP:
-	printf ("help");
+	printf ("help\n");
 	break;
     case HTTP_API_HANDLE_VERSION:
-	printf ("version");
+	printf ("version\n");
 	break;
     case HTTP_API_HANDLE_STATEMENT:
-	printf ("statement");
+	printf ("statement\n");
 	break;
     default:
-	printf ("error");
+	printf ("error\n");
     }
 
     MHD_get_connection_values (connection, MHD_HEADER_KIND, print_out_key,
 			       NULL);
 
-    MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND, print_out_key,
-			       NULL);
+    MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND, print_out_value,
+			       &uqs);
+
+    printf("querycount: %i\n", uqs.statements_found);
+
+    if (uqs.query_statement != NULL) {
+	free(uqs.query_statement);
+    }
 
     const char *page = "<html><body>Hello, browser!</body></html>";
     struct MHD_Response *response;

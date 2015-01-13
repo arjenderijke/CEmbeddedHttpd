@@ -23,6 +23,8 @@
 #define HTTP_API_HANDLE_VERSION 1
 #define HTTP_API_HANDLE_STATEMENT 2
 #define HTTP_API_HANDLE_MCLIENT 3
+#define HTTP_API_HANDLE_NOTFOUND 4
+#define HTTP_API_HANDLE_BADREQUEST 5
 
 struct url_query_statements {
     int statements_found;

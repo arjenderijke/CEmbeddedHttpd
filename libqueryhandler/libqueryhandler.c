@@ -14,6 +14,42 @@
 #define PORT 8888
 
 static int
+mock_authenticate()
+{
+
+}
+
+static int 
+mock_database()
+{
+
+}
+
+static int
+mock_render_json()
+{
+
+}
+
+static int
+mock_render_xml()
+{
+
+}
+
+static int
+mock_render_text()
+{
+
+}
+
+static int
+mock_cache()
+{
+
+}
+
+static int
 handle_request_uri(const char *url, int *use_request_handler)
 {
     UriParserStateA state;
@@ -38,11 +74,17 @@ handle_request_uri(const char *url, int *use_request_handler)
 		if (strcmp(uri.pathHead->text.first, HTTP_API_STATEMENT_PATH) == 0) {
 		    *use_request_handler = HTTP_API_HANDLE_STATEMENT;
 		}
+		if (strcmp(uri.pathHead->text.first, HTTP_API_MCLIENT_PATH) == 0) {
+		    *use_request_handler = HTTP_API_HANDLE_MCLIENT;
+		}
+		if (*use_request_handler == HTTP_API_HANDLE_ERROR) {
+		    *use_request_handler = HTTP_API_HANDLE_NOTFOUND;
+		}
 	    } else {
 		/* 
 		 * More than one path is an error
 		 */
-		*use_request_handler = HTTP_API_HANDLE_ERROR;
+		*use_request_handler = HTTP_API_HANDLE_BADREQUEST;
 	    }
 	} else {
 	    /*
@@ -54,7 +96,7 @@ handle_request_uri(const char *url, int *use_request_handler)
 	/*
 	 * Relative paths is an error
 	 */
-	*use_request_handler = HTTP_API_HANDLE_ERROR;
+	*use_request_handler = HTTP_API_HANDLE_BADREQUEST;
     }
 
     uriFreeUriMembersA(&uri);
@@ -126,19 +168,49 @@ handle_request (void *cls, struct MHD_Connection *connection,
 		const char *version, const char *upload_data,
 		size_t *upload_data_size, void **con_cls)
 {
-    int use_request_handler = 0;
-    int return_code = 0;
+    const char *page = "<html><body>Hello, browser!</body></html>";
+    const char *page200 = "<html><body>Hello, browser! 200</body></html>";
+    const char *page404 = "<html><body>Hello, browser! 404</body></html>";
+    const char *page405 = "<html><body>Hello, browser! 405</body></html>";
+    const char *page505 = "<html><body>Hello, browser! 505</body></html>";
+
+    struct MHD_Response *response;
+    int ret;
+  
+    int use_request_handler = HTTP_API_HANDLE_ERROR;
+    int return_code = MHD_HTTP_OK;
 
     struct url_query_statements uqs = { 0, 0, false, QUERY_LANGUAGE_SQL, NULL, false };
     struct request_header_list rhl = { 0, 0, NULL, NULL, NULL };
 
     printf ("New %s request for %s using version %s\n", method, url, version);
 
-    if (strcmp(version, MHD_HTTP_VERSION_1_1) == 0) {
-	handle_request_uri(url, &use_request_handler);
-    } else {
+    if (strcmp(version, MHD_HTTP_VERSION_1_1) != 0) {
 	return_code = MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED;
+
+	response =
+	    MHD_create_response_from_buffer (strlen (page505), (void *) page505, 
+					     MHD_RESPMEM_PERSISTENT);
+	ret = MHD_queue_response (connection, return_code, response);
+	MHD_destroy_response (response);
+
+	return ret;
     }
+
+    if ((strcmp(method, MHD_HTTP_METHOD_GET) != 0) &&
+	(strcmp(method, MHD_HTTP_METHOD_POST) != 0)) {
+	return_code = MHD_HTTP_METHOD_NOT_ALLOWED;
+
+	response =
+	    MHD_create_response_from_buffer (strlen (page405), (void *) page405, 
+					     MHD_RESPMEM_PERSISTENT);
+	ret = MHD_queue_response (connection, return_code, response);
+	MHD_destroy_response (response);
+
+	return ret;
+    }
+
+    handle_request_uri(url, &use_request_handler);
 
     switch(use_request_handler) {
     case HTTP_API_HANDLE_HELP:
@@ -150,8 +222,45 @@ handle_request (void *cls, struct MHD_Connection *connection,
     case HTTP_API_HANDLE_STATEMENT:
 	printf ("statement\n");
 	break;
+    case HTTP_API_HANDLE_MCLIENT:
+	printf ("mclient\n");
+	break;
+    case HTTP_API_HANDLE_NOTFOUND:
+	return_code = MHD_HTTP_NOT_FOUND;
+	break;
+    case HTTP_API_HANDLE_BADREQUEST:
+	return_code = MHD_HTTP_BAD_REQUEST;
+	break;
     default:
 	printf ("error\n");
+    }
+
+    /*
+     * If path is not found, stop processing and
+     * return an error.
+     */
+    if (return_code == MHD_HTTP_NOT_FOUND) {
+	response =
+	    MHD_create_response_from_buffer (strlen (page404), (void *) page404, 
+					     MHD_RESPMEM_PERSISTENT);
+	ret = MHD_queue_response (connection, return_code, response);
+	MHD_destroy_response (response);
+
+	return ret;
+    }
+
+    /*
+     * If problem with path, stop processing and
+     * return an error.
+     */
+    if (return_code == MHD_HTTP_BAD_REQUEST) {
+	response =
+	    MHD_create_response_from_buffer (strlen (page200), (void *) page200, 
+					     MHD_RESPMEM_PERSISTENT);
+	ret = MHD_queue_response (connection, return_code, response);
+	MHD_destroy_response (response);
+
+	return ret;
     }
 
     MHD_get_connection_values (connection, MHD_HEADER_KIND, handle_httpd_headers,
@@ -177,14 +286,10 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	free(rhl.accept);
     }
 
-    const char *page = "<html><body>Hello, browser!</body></html>";
-    struct MHD_Response *response;
-    int ret;
-  
     response =
 	MHD_create_response_from_buffer (strlen (page), (void *) page, 
 					 MHD_RESPMEM_PERSISTENT);
-    ret = MHD_queue_response (connection, MHD_HTTP_OK, response);
+    ret = MHD_queue_response (connection, return_code, response);
     MHD_destroy_response (response);
 
     return ret;

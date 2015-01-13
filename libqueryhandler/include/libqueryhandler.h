@@ -33,5 +33,13 @@ struct url_query_statements {
     bool query_mclient;
 };
 
+struct request_header_list {
+    int headers_found;
+    int headers_error;
+    char * host;
+    char * user_agent;
+    char * accept;
+};
+
 void run_query_handler();
 #endif /* LIBQUERYHANDLER_H_INCLUDED */

@@ -62,16 +62,22 @@ handle_request_uri(const char *url, int *use_request_handler)
 }
 
 static int
-print_out_key (void *cls, enum MHD_ValueKind kind, const char *key,
-               const char *value)
+handle_httpd_headers (void *cls, enum MHD_ValueKind kind, const char *key,
+		      const char *value)
 {
+    struct request_header_list * rhl = (struct request_header_list *) cls;
+    rhl->headers_found++;
+    if (strcmp(key, MHD_HTTP_HEADER_ACCEPT) == 0) {
+	rhl->accept = malloc(strlen(value));
+	strcpy(rhl->accept, value);
+    }
     printf ("%s: %s\n", key, value);
     return MHD_YES;
 }
 
 static int
-print_out_value (void *cls, enum MHD_ValueKind kind, const char *key,
-		 const char *value)
+handle_query_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
+			 const char *value)
 {
     char query_key;
     struct url_query_statements * uqs = (struct url_query_statement *) cls;
@@ -124,6 +130,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
     int return_code = 0;
 
     struct url_query_statements uqs = { 0, 0, false, QUERY_LANGUAGE_SQL, NULL, false };
+    struct request_header_list rhl = { 0, 0, NULL, NULL, NULL };
 
     printf ("New %s request for %s using version %s\n", method, url, version);
 
@@ -147,16 +154,27 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	printf ("error\n");
     }
 
-    MHD_get_connection_values (connection, MHD_HEADER_KIND, print_out_key,
-			       NULL);
+    MHD_get_connection_values (connection, MHD_HEADER_KIND, handle_httpd_headers,
+			       &rhl);
 
-    MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND, print_out_value,
+    MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND, handle_query_parameters,
 			       &uqs);
 
     printf("querycount: %i\n", uqs.statements_found);
+    printf("headercount: %i\n", rhl.headers_found);
 
     if (uqs.query_statement != NULL) {
 	free(uqs.query_statement);
+    }
+
+    if (rhl.host != NULL) {
+	free(rhl.host);
+    }
+    if (rhl.user_agent != NULL) {
+	free(rhl.user_agent);
+    }
+    if (rhl.accept != NULL) {
+	free(rhl.accept);
     }
 
     const char *page = "<html><body>Hello, browser!</body></html>";

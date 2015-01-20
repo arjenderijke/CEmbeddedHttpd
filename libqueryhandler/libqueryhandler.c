@@ -13,6 +13,8 @@
 
 #define DEFAULT_PORT 8888
 #define MAX_GET_REQUEST_LENGTH 2147483648
+#define DEFAULT_USER "monetdb"
+#define DEFAULT_PASSWORD "monetdb"
 
 static int
 getPort()
@@ -22,9 +24,41 @@ getPort()
 }
 
 static int
+authorize(const char * host, const int hostname_len, const char * username)
+{
+    char * hostname;
+    int allow;
+    hostname = malloc((hostname_len + 1) * sizeof(char));
+    strncpy(hostname, host, hostname_len);
+    hostname[hostname_len] = '\0';
+
+    if (username == NULL) {
+	if (strcmp(hostname, "localhost") == 0) {
+	    allow = MHD_YES;
+	} else {
+	    allow = MHD_NO;
+	}
+    } else {
+	if ((strcmp(hostname, "localhost") == 0) &&
+	    (strcmp(username, "arjen") == 0)) {
+	    allow = MHD_YES;
+	} else {
+	    allow = MHD_NO;
+	}
+    }
+    free(hostname);
+    return allow;
+}
+
+static int
 mock_authenticate(const char * username, const char * password)
 {
-    return 0;
+    if ((strcmp (username, "arjen") != 0) ||
+	(strcmp (password, "arjen") != 0)) {  
+	return 1;
+    } else {
+	return 0;
+    }
 }
 
 static int 
@@ -94,6 +128,20 @@ result_page(char ** result_page, const int status_code)
     return 0;
 }
 
+static void
+free_headers(const struct request_header_list * rhl)
+{
+    if (rhl->host != NULL) {
+	free(rhl->host);
+    }
+    if (rhl->user_agent != NULL) {
+	free(rhl->user_agent);
+    }
+    if (rhl->accept != NULL) {
+	free(rhl->accept);
+    }
+}
+
 static int
 handle_request_uri(const char *url, int *use_request_handler)
 {
@@ -158,6 +206,11 @@ handle_httpd_headers (void *cls, enum MHD_ValueKind kind, const char *key,
 	rhl->accept = malloc(strlen(value) * sizeof(char));
 	strcpy(rhl->accept, value);
     }
+    if (strcmp(key, MHD_HTTP_HEADER_HOST) == 0) {
+	rhl->host = malloc(strlen(value) * sizeof(char));
+	strcpy(rhl->host, value);
+    }
+
     printf ("%s: %s\n", key, value);
     return MHD_YES;
 }
@@ -220,13 +273,19 @@ handle_request (void *cls, struct MHD_Connection *connection,
     int use_request_handler = HTTP_API_HANDLE_ERROR;
     int return_code = MHD_HTTP_OK;
 
-    char * username;
-    char * password;
-    char * query;
-    char * tag;
-
+    char * username = NULL;
+    char * password = NULL;
+    char * query = NULL;
+    char * tag = NULL;
+    int hostname_len = 0;
+    
     struct url_query_statements uqs = { 0, 0, false, QUERY_LANGUAGE_SQL, NULL, false };
     struct request_header_list rhl = { 0, 0, NULL, NULL, NULL };
+
+    if (*con_cls == NULL) {
+	*con_cls = connection;
+	return MHD_YES;
+    }
 
     printf ("New %s request for %s using version %s\n", method, url, version);
 
@@ -239,7 +298,28 @@ handle_request (void *cls, struct MHD_Connection *connection,
      * Do not do anything unless a connection is allowed.
      * Here we only check hostname/ip-address.
      */
+    hostname_len = strlen(rhl.host) - strlen(strstr(rhl.host, ":"));
 
+    if (authorize(rhl.host, hostname_len, username) == MHD_NO) {
+	return_code = MHD_HTTP_UNAUTHORIZED;
+	error_page(&page, return_code);
+
+	/*
+	 * If a resultpage has been created, we should return it
+	 * instead of continuing with the request.
+	 */
+	if (page != NULL) {
+	    free_headers(&rhl);
+	    response =
+		MHD_create_response_from_buffer (strlen (page), (void *) page, 
+						 MHD_RESPMEM_MUST_FREE);
+	    ret = MHD_queue_response (connection, return_code, response);
+	    MHD_destroy_response (response);
+
+	    return ret;
+	}
+    }
+    
     /*
      * Second, check some parts of the request.
      * This is more important than checking the users password.
@@ -261,6 +341,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
      * instead of continuing with the request.
      */
     if (page != NULL) {
+	free_headers(&rhl);
 	response =
 	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
 					     MHD_RESPMEM_MUST_FREE);
@@ -275,12 +356,38 @@ handle_request (void *cls, struct MHD_Connection *connection,
      * Only allow a authentificated user to continue.
      * Also check authorization of user/hostname combination.
      */
-    if (mock_authenticate(username, password) == 0) {
-
+    username = MHD_basic_auth_get_username_password (connection, &password);
+    if ((username != NULL) &&
+	(mock_authenticate(username, password) == 0)) {
+	if (authorize(rhl.host, hostname_len, username) == MHD_NO) {
+	    return_code = MHD_HTTP_UNAUTHORIZED;
+	    error_page(&page, return_code);
+	}
     } else {
 	return_code = MHD_HTTP_UNAUTHORIZED;
+	error_page(&page, return_code);
     }
 
+    /*
+     * If a resultpage has been created, we should return it
+     * instead of continuing with the request.
+     */
+    if (page != NULL) {
+	if (username != NULL) free(username);
+	if (password != NULL) free(password);
+	
+	free_headers(&rhl);
+	response =
+	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
+					     MHD_RESPMEM_MUST_FREE);
+	ret = MHD_queue_basic_auth_fail_response (connection,
+						  "my realm",
+						  response);
+	MHD_destroy_response (response);
+
+	return ret;
+    }
+    
     /*
      * Now try to handle the actual request
      */
@@ -332,6 +439,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
      * instead of continuing with the request.
      */
     if (page != NULL) {
+	free_headers(&rhl);
 	response =
 	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
 					     MHD_RESPMEM_MUST_FREE);
@@ -367,16 +475,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	free(uqs.query_statement);
     }
 
-    if (rhl.host != NULL) {
-	free(rhl.host);
-    }
-    if (rhl.user_agent != NULL) {
-	free(rhl.user_agent);
-    }
-    if (rhl.accept != NULL) {
-	free(rhl.accept);
-    }
-
+    free_headers(&rhl);
     result_page(&page, return_code);
     response =
 	MHD_create_response_from_buffer (strlen (page), (void *) page, 

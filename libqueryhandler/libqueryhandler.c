@@ -1,4 +1,4 @@
-#if HAVE_CONFIG_H
+#if !HAVE_CONFIG_H
 #include <config.h>
 #endif
 
@@ -11,7 +11,15 @@
 
 #include "libqueryhandler.h"
 
-#define PORT 8888
+#define DEFAULT_PORT 8888
+#define MAX_GET_REQUEST_LENGTH 2147483648
+
+static int
+getPort()
+{
+    int port = DEFAULT_PORT;
+    return port;
+}
 
 static int
 mock_authenticate(const char * username, const char * password)
@@ -46,6 +54,25 @@ mock_render_text()
 static int
 mock_cache(const char * tag, const char * page)
 {
+    return 0;
+}
+
+static int
+help_page(char ** result_page)
+{
+    *result_page = (char *) malloc(100 * sizeof(char));
+
+    sprintf(*result_page, "<html><body>Hello, browser! help</body></html>");
+    return 0;
+}
+
+static int
+version_page(char ** result_page)
+{
+    char * version = "Version 0.0.1";
+    *result_page = (char *) malloc(100 * sizeof(char));
+
+    sprintf(*result_page, "<html><body>Hello, browser! %s</body></html>", version);
     return 0;
 }
 
@@ -128,7 +155,7 @@ handle_httpd_headers (void *cls, enum MHD_ValueKind kind, const char *key,
     struct request_header_list * rhl = (struct request_header_list *) cls;
     rhl->headers_found++;
     if (strcmp(key, MHD_HTTP_HEADER_ACCEPT) == 0) {
-	rhl->accept = malloc(strlen(value));
+	rhl->accept = malloc(strlen(value) * sizeof(char));
 	strcpy(rhl->accept, value);
     }
     printf ("%s: %s\n", key, value);
@@ -154,7 +181,7 @@ handle_query_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
 	    break;
 	case HTTP_QUERY_STATEMENT:
 	    // TODO: handle malloc error
-	    uqs->query_statement = malloc(strlen(value));
+	    uqs->query_statement = malloc(strlen(value) * sizeof(char));
 	    strcpy(uqs->query_statement, value);
 	    break;
 	case HTTP_QUERY_LANGUAGE:
@@ -186,7 +213,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 		const char *version, const char *upload_data,
 		size_t *upload_data_size, void **con_cls)
 {
-    char *page;
+    char *page = NULL;
     struct MHD_Response *response;
     int ret;
   
@@ -235,48 +262,49 @@ handle_request (void *cls, struct MHD_Connection *connection,
     switch(use_request_handler) {
     case HTTP_API_HANDLE_HELP:
 	printf ("help\n");
+	help_page(&page);
 	break;
     case HTTP_API_HANDLE_VERSION:
 	printf ("version\n");
+	version_page(&page);
+	break;
+    case HTTP_API_HANDLE_MCLIENT:
+	return_code = MHD_HTTP_NOT_IMPLEMENTED;
+	error_page(&page, return_code);
+	break;
+    case HTTP_API_HANDLE_NOTFOUND:
+	/*
+	 * If path is not found, stop processing and
+	 * return an error.
+	 */
+	return_code = MHD_HTTP_NOT_FOUND;
+	error_page(&page, return_code);
+	break;
+    case HTTP_API_HANDLE_BADREQUEST:
+	/*
+	 * If problem with path, stop processing and
+	 * return an error.
+	 */
+	return_code = MHD_HTTP_BAD_REQUEST;
+	error_page(&page, return_code);
 	break;
     case HTTP_API_HANDLE_STATEMENT:
 	printf ("statement\n");
 	break;
-    case HTTP_API_HANDLE_MCLIENT:
-	return_code = MHD_HTTP_NOT_IMPLEMENTED;
-	break;
-    case HTTP_API_HANDLE_NOTFOUND:
-	return_code = MHD_HTTP_NOT_FOUND;
-	break;
-    case HTTP_API_HANDLE_BADREQUEST:
-	return_code = MHD_HTTP_BAD_REQUEST;
-	break;
     default:
+	/*
+	 * Unknown problem, stop processing
+	 */
 	printf ("error\n");
+	return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+	error_page(&page, return_code);
     }
 
     /*
-     * If path is not found, stop processing and
-     * return an error.
+     * If a resultpage has been created, we should return it
+     * instead of continuing with the request.
      */
-    if (return_code == MHD_HTTP_NOT_FOUND) {
-	error_page(&page, return_code);
-	response =
-	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
-					     MHD_RESPMEM_MUST_FREE);
-	ret = MHD_queue_response (connection, return_code, response);
-	MHD_destroy_response (response);
-
-	return ret;
-    }
-
-    /*
-     * If problem with path, stop processing and
-     * return an error.
-     */
-    if (return_code == MHD_HTTP_BAD_REQUEST) {
-	error_page(&page, return_code);
-
+    if (page != NULL) {
 	response =
 	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
 					     MHD_RESPMEM_MUST_FREE);
@@ -342,9 +370,10 @@ handle_request (void *cls, struct MHD_Connection *connection,
 
 void run_query_handler() {
     struct MHD_Daemon *daemon;
+    int listen_port = getPort();
 
-    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, PORT, NULL, NULL,
-			       &handle_request, NULL, MHD_OPTION_END);
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port, NULL,
+			       NULL, &handle_request, NULL, MHD_OPTION_END);
     if (NULL == daemon)
 	return 1;
 

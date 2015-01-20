@@ -230,24 +230,37 @@ handle_request (void *cls, struct MHD_Connection *connection,
 
     printf ("New %s request for %s using version %s\n", method, url, version);
 
+    MHD_get_connection_values (connection, MHD_HEADER_KIND, handle_httpd_headers,
+			       &rhl);
+    printf("headercount: %i\n", rhl.headers_found);
+
+    /*
+     * First check authorization.
+     * Do not do anything unless a connection is allowed.
+     * Here we only check hostname/ip-address.
+     */
+
+    /*
+     * Second, check some parts of the request.
+     * This is more important than checking the users password.
+     * We will not allow anything unless these criteria are met.
+     */
     if (strcmp(version, MHD_HTTP_VERSION_1_1) != 0) {
 	return_code = MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED;
-
 	error_page(&page, return_code);
-	response =
-	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
-					     MHD_RESPMEM_MUST_FREE);
-	ret = MHD_queue_response (connection, return_code, response);
-	MHD_destroy_response (response);
-
-	return ret;
     }
 
     if ((strcmp(method, MHD_HTTP_METHOD_GET) != 0) &&
 	(strcmp(method, MHD_HTTP_METHOD_POST) != 0)) {
 	return_code = MHD_HTTP_METHOD_NOT_ALLOWED;
-
 	error_page(&page, return_code);
+    }
+
+    /*
+     * If a resultpage has been created, we should return it
+     * instead of continuing with the request.
+     */
+    if (page != NULL) {
 	response =
 	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
 					     MHD_RESPMEM_MUST_FREE);
@@ -257,6 +270,20 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	return ret;
     }
 
+    /*
+     * Third, check authentification.
+     * Only allow a authentificated user to continue.
+     * Also check authorization of user/hostname combination.
+     */
+    if (mock_authenticate(username, password) == 0) {
+
+    } else {
+	return_code = MHD_HTTP_UNAUTHORIZED;
+    }
+
+    /*
+     * Now try to handle the actual request
+     */
     handle_request_uri(url, &use_request_handler);
 
     switch(use_request_handler) {
@@ -314,34 +341,26 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	return ret;
     }
 
-    MHD_get_connection_values (connection, MHD_HEADER_KIND, handle_httpd_headers,
-			       &rhl);
-
     MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND, handle_query_parameters,
 			       &uqs);
 
     printf("querycount: %i\n", uqs.statements_found);
-    printf("headercount: %i\n", rhl.headers_found);
 
-    if (mock_authenticate(username, password) == 0) {
-	if(mock_database(username, query) == 0) {
-	    if (mock_render_json(&page) == 0) {
-		// TODO: handle no caching
-		if (mock_cache(tag, page) == 0) {
-		    /*
-		     * Query succeeds. default return_code
-		     */
-		} else {
-		    return_code = MHD_HTTP_NOT_MODIFIED;
-		}
+    if(mock_database(username, query) == 0) {
+	if (mock_render_json(&page) == 0) {
+	    // TODO: handle no caching
+	    if (mock_cache(tag, page) == 0) {
+		/*
+		 * Query succeeds. default return_code
+		 */
 	    } else {
-		return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+		return_code = MHD_HTTP_NOT_MODIFIED;
 	    }
 	} else {
 	    return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
 	}
     } else {
-	return_code = MHD_HTTP_UNAUTHORIZED;
+	return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
     }
 
     if (uqs.query_statement != NULL) {

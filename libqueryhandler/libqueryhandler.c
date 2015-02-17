@@ -18,6 +18,13 @@
 #define ENABLE_AUTH true
 #define DEFAULT_AUTH "basic"
 
+#define POSTBUFFERSIZE  512
+#define MAXQUERYSIZE     20
+#define MAXANSWERSIZE   512
+
+#define GET             0
+#define POST            1
+
 static int
 getPort()
 {
@@ -296,6 +303,60 @@ handle_query_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
     return MHD_YES;
 }
 
+static int
+handle_post_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
+			 const char *value)
+{
+    printf ("%s: %s\n", key, value);
+    return MHD_YES;
+}
+
+static int 
+iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
+              const char *filename, const char *content_type,
+              const char *transfer_encoding, const char *data, 
+	      uint64_t off, size_t size)
+{
+    struct connection_info_struct *con_info = coninfo_cls;
+
+    if (strcmp (key, "query") == 0) {
+	if ((size > 0) && (size <= MAXQUERYSIZE)) {
+	    char *answerstring;
+	    answerstring = malloc (MAXANSWERSIZE);
+	    if (!answerstring) return MHD_NO;
+      
+	    snprintf (answerstring, MAXANSWERSIZE, "%s", data);
+	    con_info->answerstring = answerstring;      
+	} else {
+	  con_info->answerstring = NULL;
+	}
+	return MHD_NO;
+    }
+
+    return MHD_YES;
+}
+
+void request_completed (void *cls, struct MHD_Connection *connection, 
+     		        void **con_cls,
+                        enum MHD_RequestTerminationCode toe)
+{
+  struct connection_info_struct *con_info = *con_cls;
+
+  if (con_info == NULL) {
+      return;
+  }
+  
+  if (con_info->connectiontype == POST) {
+      MHD_destroy_post_processor (con_info->postprocessor);        
+      if (con_info->answerstring) {
+	  free (con_info->answerstring);
+      }
+  }
+  
+  free (con_info);
+  *con_cls = NULL;   
+}
+
 int
 handle_request (void *cls, struct MHD_Connection *connection,
 		const char *url, const char *method,
@@ -317,9 +378,28 @@ handle_request (void *cls, struct MHD_Connection *connection,
     
     struct url_query_statements uqs = { 0, 0, false, QUERY_LANGUAGE_SQL, NULL, false };
     struct request_header_list rhl = { 0, 0, NULL, NULL, NULL };
+    struct connection_info_struct *con_info;
 
     if (*con_cls == NULL) {
-	*con_cls = connection;
+	con_info = malloc (sizeof (struct connection_info_struct));
+	if (con_info == NULL) return MHD_NO;
+	con_info->answerstring = NULL;
+
+	if (strcmp(method, "POST") == 0) {
+	    con_info->postprocessor =
+		MHD_create_post_processor (connection, POSTBUFFERSIZE,
+					   iterate_post, (void *) con_info);
+
+	    if (con_info->postprocessor == NULL) {
+		free (con_info);
+		return MHD_NO;
+	    }
+	    con_info->connectiontype = POST;
+	} else {
+	    con_info->connectiontype = GET;
+	}
+      
+	*con_cls = (void *) con_info;
 	return MHD_YES;
     }
 
@@ -333,6 +413,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
      * First check authorization.
      * Do not do anything unless a connection is allowed.
      * Here we only check hostname/ip-address.
+     * [TODO]: rewrite with MHD_AcceptPolicyCallback
      */
     hostname_len = strlen(rhl.host) - strlen(strstr(rhl.host, ":"));
 
@@ -423,6 +504,12 @@ handle_request (void *cls, struct MHD_Connection *connection,
 
 	return ret;
     }
+
+    /*
+     * [TODO]: use MHD_OPTION_URI_LOG_CALLBACK to enable callback
+     *         to check for original length of uri and return
+     *         414 if too large for get request
+     */
     
     /*
      * Now try to handle the actual request
@@ -485,10 +572,35 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	return ret;
     }
 
-    MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND, handle_query_parameters,
-			       &uqs);
+    if (strcmp(method, MHD_HTTP_METHOD_GET) == 0) {
+	MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND,
+				   handle_query_parameters,
+				   &uqs);
 
-    printf("querycount: %i\n", uqs.statements_found);
+	printf("querycount: %i\n", uqs.statements_found);
+    }
+
+    if (strcmp(method, MHD_HTTP_METHOD_POST) == 0) {
+	printf("handle post\n");
+	MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND,
+				   handle_post_parameters,
+				   NULL);
+
+	con_info = *con_cls;
+
+	if (*upload_data_size != 0) {
+	    MHD_post_process (con_info->postprocessor, upload_data,
+			      *upload_data_size);
+	    *upload_data_size = 0;
+
+	    return MHD_YES;
+        } else {
+	    if (con_info->answerstring != NULL) {
+		query = con_info->answerstring;
+		printf("post query: %s\n", query);
+	    }
+	}
+    }
 
     if(mock_database(username, query) == 0) {
 	if (mock_render_json(&page) == 0) {
@@ -527,9 +639,12 @@ void run_query_handler() {
     int listen_port = getPort();
 
     daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port, NULL,
-			       NULL, &handle_request, NULL, MHD_OPTION_END);
+			       NULL, &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
     if (NULL == daemon)
-	return 1;
+	return;
 
     getchar ();
 

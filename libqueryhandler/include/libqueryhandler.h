@@ -26,6 +26,13 @@
 #define HTTP_API_HANDLE_NOTFOUND 4
 #define HTTP_API_HANDLE_BADREQUEST 5
 
+struct connection_info_struct
+{
+    int connectiontype;
+    char *answerstring;
+    struct MHD_PostProcessor *postprocessor; 
+};
+
 struct url_query_statements {
     int statements_found;
     int statements_error;

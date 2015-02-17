@@ -132,7 +132,7 @@ help_page(char ** result_page)
 {
     *result_page = (char *) malloc(100 * sizeof(char));
 
-    sprintf(*result_page, "<html><body>Hello, browser! help</body></html>");
+    sprintf(*result_page, "<html><body>Hello, browser! help</body></html>\n");
     return 0;
 }
 
@@ -142,7 +142,7 @@ version_page(char ** result_page)
     char * version = "Version 0.0.1";
     *result_page = (char *) malloc(100 * sizeof(char));
 
-    sprintf(*result_page, "<html><body>Hello, browser! %s</body></html>", version);
+    sprintf(*result_page, "<html><body>Hello, browser! %s</body></html>\n", version);
     return 0;
 }
 
@@ -151,7 +151,7 @@ error_page(char ** result_page, const int status_code)
 {
     *result_page = (char *) malloc(100 * sizeof(char));
 
-    sprintf(*result_page, "<html><body>Hello, browser! %i</body></html>", status_code);
+    sprintf(*result_page, "<html><body>Hello, browser! %i</body></html>\n", status_code);
     return 0;
 }
 
@@ -160,7 +160,7 @@ result_page(char ** result_page, const int status_code)
 {
     *result_page = (char *) malloc(100 * sizeof(char));
 
-    sprintf(*result_page, "<html><body>Hello, browser! %i</body></html>", status_code);
+    sprintf(*result_page, "<html><body>Hello, browser! %i</body></html>\n", status_code);
     return 0;
 }
 
@@ -394,7 +394,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
      */
     username = MHD_basic_auth_get_username_password (connection, &password);
     if ((username != NULL) &&
-	(mock_authenticate(username, password) == 0)) {
+	(mock_authenticate(username, password) == MHD_YES)) {
 	if (authorize(rhl.host, hostname_len, username) == MHD_NO) {
 	    return_code = MHD_HTTP_UNAUTHORIZED;
 	    error_page(&page, return_code);

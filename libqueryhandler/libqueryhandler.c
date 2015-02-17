@@ -15,12 +15,42 @@
 #define MAX_GET_REQUEST_LENGTH 2147483648
 #define DEFAULT_USER "monetdb"
 #define DEFAULT_PASSWORD "monetdb"
+#define ENABLE_AUTH true
+#define DEFAULT_AUTH "basic"
 
 static int
 getPort()
 {
     int port = DEFAULT_PORT;
     return port;
+}
+
+static bool
+getEnableAuth()
+{
+    bool enable_auth = ENABLE_AUTH;
+    return enable_auth;
+}
+
+static char *
+getAuth()
+{
+    char * auth = DEFAULT_AUTH;
+    return auth;
+}
+
+static char *
+getServerUsername()
+{
+    char * server_user = DEFAULT_USER;
+    return server_user;
+}
+
+static char *
+getServerPassword()
+{
+    char * server_password = DEFAULT_PASSWORD;
+    return server_password;
 }
 
 static int
@@ -32,6 +62,9 @@ authorize(const char * host, const int hostname_len, const char * username)
     strncpy(hostname, host, hostname_len);
     hostname[hostname_len] = '\0';
 
+    /*
+     * TODO: read settings from file
+     */
     if (username == NULL) {
 	if (strcmp(hostname, "localhost") == 0) {
 	    allow = MHD_YES;
@@ -53,11 +86,14 @@ authorize(const char * host, const int hostname_len, const char * username)
 static int
 mock_authenticate(const char * username, const char * password)
 {
+    /*
+     * TODO: authenticate against database
+     */
     if ((strcmp (username, "arjen") != 0) ||
 	(strcmp (password, "arjen") != 0)) {  
-	return 1;
+	return MHD_NO;
     } else {
-	return 0;
+	return MHD_YES;
     }
 }
 
@@ -381,7 +417,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
 					     MHD_RESPMEM_MUST_FREE);
 	ret = MHD_queue_basic_auth_fail_response (connection,
-						  "my realm",
+						  "monetdb",
 						  response);
 	MHD_destroy_response (response);
 

@@ -24,6 +24,8 @@
 
 #define GET             0
 #define POST            1
+#define MAXCLIENTS      2
+static unsigned int    nr_of_uploading_clients = 0;
 
 static int
 getPort()
@@ -319,6 +321,11 @@ iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
 {
     struct connection_info_struct *con_info = coninfo_cls;
 
+    /*
+     * [TODO]: concat parts of post data, set responsed if it failes
+     *         and make sure the memory of answerstring is freed
+     */
+    printf("key : %s\n", key);
     if (strcmp (key, "query") == 0) {
 	if ((size > 0) && (size <= MAXQUERYSIZE)) {
 	    char *answerstring;
@@ -394,7 +401,10 @@ handle_request (void *cls, struct MHD_Connection *connection,
 		free (con_info);
 		return MHD_NO;
 	    }
+	    nr_of_uploading_clients++;
 	    con_info->connectiontype = POST;
+	    con_info->answercode = return_code;
+	    //con_info->answerstring = 
 	} else {
 	    con_info->connectiontype = GET;
 	}
@@ -581,7 +591,10 @@ handle_request (void *cls, struct MHD_Connection *connection,
     }
 
     if (strcmp(method, MHD_HTTP_METHOD_POST) == 0) {
+	//if (nr_of_uploading_clients >= MAXCLIENTS) 
+        //return send_page(connection, busypage, MHD_HTTP_SERVICE_UNAVAILABLE);
 	printf("handle post\n");
+	
 	MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND,
 				   handle_post_parameters,
 				   NULL);

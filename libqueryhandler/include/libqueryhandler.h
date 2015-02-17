@@ -31,6 +31,7 @@ struct connection_info_struct
     int connectiontype;
     char *answerstring;
     struct MHD_PostProcessor *postprocessor; 
+    int answercode;
 };
 
 struct url_query_statements {

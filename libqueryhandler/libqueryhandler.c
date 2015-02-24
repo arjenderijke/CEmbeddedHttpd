@@ -145,22 +145,30 @@ mock_cache(const char * tag, const char * page)
 }
 
 static int
-help_page(char ** result_page)
+help_page(char ** result_page, const int returntype)
 {
-    char * helppage = "<html>"
+    char * helppage_html = "<html>"
 	"<title>CEmbeddedHttpd Help</title>"
 	"<body>"
 	"<h1>Helptext</h1>"
 	"<p>help</p>"
 	"</body></html>\n";
-    *result_page = (char *) malloc(strlen(helppage) * sizeof(char));
 
-    sprintf(*result_page, helppage);
+    switch (returntype) {
+    case RETURN_XML:
+    case RETURN_JSON:
+    case RETURN_CSV:
+    default:
+	// RETURN_HTML
+	*result_page = (char *) malloc(strlen(helppage_html) * sizeof(char));
+	sprintf(*result_page, helppage_html);
+    }
+
     return 0;
 }
 
 static int
-version_page(char ** result_page)
+version_page(char ** result_page, const int returntype)
 {
     char * version = getVersion();
     char * versionHTML = "<html>"
@@ -168,21 +176,77 @@ version_page(char ** result_page)
 	"<body>"
 	"<p>Version %s</p>"
 	"</body></html>\n";
-    *result_page = (char *) malloc((strlen(versionHTML) + strlen(version)) * sizeof(char));
+    char * versionXML = "<xml>"
+	"<version>%s</version>\n";
+    char * versionJSON = "{ \"version\" : \"%s\" }\n";
+    char * versionCSV = "version\n%s\n";
 
-    sprintf(*result_page, versionHTML, version);
+    switch (returntype) {
+    case RETURN_XML:
+	*result_page = (char *) malloc((strlen(versionXML) + strlen(version)) * sizeof(char));
+	sprintf(*result_page, versionXML, version);
+	break;
+    case RETURN_JSON:
+	*result_page = (char *) malloc((strlen(versionJSON) + strlen(version)) * sizeof(char));
+	sprintf(*result_page, versionJSON, version);
+	break;
+    case RETURN_CSV:
+	*result_page = (char *) malloc((strlen(versionCSV) + strlen(version)) * sizeof(char));
+	sprintf(*result_page, versionCSV, version);
+	break;
+    default:
+	// RETURN_HTML
+	*result_page = (char *) malloc((strlen(versionHTML) + strlen(version)) * sizeof(char));
+	sprintf(*result_page, versionHTML, version);
+    }
+
     return 0;
 }
 
 static int
-error_page(char ** result_page, const int status_code)
+error_page(char ** result_page, const int status_code, const int returntype, const bool quiet)
 {
-    *result_page = (char *) malloc(100 * sizeof(char));
+    char * empty = "";
 
-    /*
-     * result depends on mime type
-     */
-    sprintf(*result_page, "<html><body>Hello, browser! %i</body></html>\n", status_code);
+    char * errorHTML = "<html>"
+	"<title>CEmbeddedHttpd Version</title>"
+	"<body>"
+	"<p>Version %s</p>"
+	"</body></html>\n";
+    char * errorXML = "<xml>"
+	"<version>%s</version>\n";
+    char * errorJSON = "{ \"version\" : \"%s\" }\n";
+    char * errorCSV = "version\n%s\n";
+    char error_code[3];
+    sprintf(error_code, "%s", status_code);
+    
+    if (quiet) {
+	*result_page = (char *) malloc(strlen(empty) * sizeof(char));
+	sprintf(*result_page, empty);
+    } else {
+	/*
+	 * result depends on mime type
+	 */
+	switch (returntype) {
+	case RETURN_XML:
+	    *result_page = (char *) malloc((strlen(errorXML) + strlen(error_code)) * sizeof(char));
+	    sprintf(*result_page, errorXML, error_code);
+	    break;
+	case RETURN_JSON:
+	    *result_page = (char *) malloc((strlen(errorJSON) + strlen(error_code)) * sizeof(char));
+	    sprintf(*result_page, errorJSON, error_code);
+	    break;
+	case RETURN_CSV:
+	    *result_page = (char *) malloc((strlen(errorCSV) + strlen(error_code)) * sizeof(char));
+	    sprintf(*result_page, errorCSV, error_code);
+	    break;
+	default:
+	    // RETURN_HTML
+	    *result_page = (char *) malloc((strlen(errorHTML) + strlen(error_code)) * sizeof(char));
+	    sprintf(*result_page, errorHTML, error_code);
+	}
+    }
+    
     return 0;
 }
 
@@ -196,6 +260,27 @@ result_page(char ** result_page, const int status_code)
      */
     sprintf(*result_page, "<html><body>Hello, browser! %i</body></html>\n", status_code);
     return 0;
+}
+
+static void
+setContentTypeHeader(const struct MHD_Response * response, const int returntype)
+{
+    switch (returntype) {
+    case RETURN_XML:
+	MHD_add_response_header (response, "Content-Type", ACCEPT_XML);
+	break;
+    case RETURN_JSON:
+	MHD_add_response_header (response, "Content-Type", ACCEPT_JSON);
+	break;
+    case RETURN_CSV:
+	MHD_add_response_header (response, "Content-Type", ACCEPT_CSV);
+	break;
+    case RETURN_HTML:
+    default:
+	MHD_add_response_header (response, "Content-Type", ACCEPT_HTML);
+    }
+
+    return;
 }
 
 static void
@@ -331,6 +416,20 @@ handle_query_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
 }
 
 static int
+setReturnContent(const char * accept)
+{
+    if (strcmp(accept, ACCEPT_HTML) == 0) return RETURN_HTML;
+    if (strcmp(accept, ACCEPT_XML) == 0) return RETURN_XML;
+    if (strcmp(accept, ACCEPT_JSON) == 0) return RETURN_JSON;
+    if (strcmp(accept, ACCEPT_CSV) == 0) return RETURN_CSV;
+    
+    /*
+     * In all other cases, return html
+     */
+    return RETURN_HTML;
+}
+
+static int
 handle_post_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
 			 const char *value)
 {
@@ -401,7 +500,9 @@ handle_request (void *cls, struct MHD_Connection *connection,
   
     int use_request_handler = HTTP_API_HANDLE_ERROR;
     int return_code = MHD_HTTP_OK;
-
+    int return_content = RETURN_HTML;
+    int quiet_error = true;
+    
     char * username = NULL;
     char * password = NULL;
     char * query = NULL;
@@ -443,7 +544,8 @@ handle_request (void *cls, struct MHD_Connection *connection,
     MHD_get_connection_values (connection, MHD_HEADER_KIND, handle_httpd_headers,
 			       &rhl);
     printf("headercount: %i\n", rhl.headers_found);
-
+    return_content = setReturnContent(rhl.accept);
+    
     /*
      * First check authorization.
      * Do not do anything unless a connection is allowed.
@@ -454,7 +556,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 
     if (authorize(rhl.host, hostname_len, username) == MHD_NO) {
 	return_code = MHD_HTTP_UNAUTHORIZED;
-	error_page(&page, return_code);
+	error_page(&page, return_code, return_content, quiet_error);
 
 	/*
 	 * If a resultpage has been created, we should return it
@@ -465,6 +567,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	    response =
 		MHD_create_response_from_buffer (strlen (page), (void *) page, 
 						 MHD_RESPMEM_MUST_FREE);
+	    setContentTypeHeader(response, return_content);
 	    ret = MHD_queue_response (connection, return_code, response);
 	    MHD_destroy_response (response);
 
@@ -479,13 +582,13 @@ handle_request (void *cls, struct MHD_Connection *connection,
      */
     if (strcmp(version, MHD_HTTP_VERSION_1_1) != 0) {
 	return_code = MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED;
-	error_page(&page, return_code);
+	error_page(&page, return_code, return_content, quiet_error);
     }
 
     if ((strcmp(method, MHD_HTTP_METHOD_GET) != 0) &&
 	(strcmp(method, MHD_HTTP_METHOD_POST) != 0)) {
 	return_code = MHD_HTTP_METHOD_NOT_ALLOWED;
-	error_page(&page, return_code);
+	error_page(&page, return_code, return_content, quiet_error);
     }
 
     /*
@@ -497,6 +600,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	response =
 	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
 					     MHD_RESPMEM_MUST_FREE);
+	setContentTypeHeader(response, return_content);
 	ret = MHD_queue_response (connection, return_code, response);
 	MHD_destroy_response (response);
 
@@ -513,11 +617,11 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	(mock_authenticate(username, password) == MHD_YES)) {
 	if (authorize(rhl.host, hostname_len, username) == MHD_NO) {
 	    return_code = MHD_HTTP_UNAUTHORIZED;
-	    error_page(&page, return_code);
+	    error_page(&page, return_code, return_content, quiet_error);
 	}
     } else {
 	return_code = MHD_HTTP_UNAUTHORIZED;
-	error_page(&page, return_code);
+	error_page(&page, return_code, return_content, quiet_error);
     }
 
     /*
@@ -532,6 +636,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	response =
 	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
 					     MHD_RESPMEM_MUST_FREE);
+	setContentTypeHeader(response, return_content);
 	ret = MHD_queue_basic_auth_fail_response (connection,
 						  "monetdb",
 						  response);
@@ -554,15 +659,15 @@ handle_request (void *cls, struct MHD_Connection *connection,
     switch(use_request_handler) {
     case HTTP_API_HANDLE_HELP:
 	printf ("help\n");
-	help_page(&page);
+	help_page(&page, return_content);
 	break;
     case HTTP_API_HANDLE_VERSION:
 	printf ("version\n");
-	version_page(&page);
+	version_page(&page, return_content);
 	break;
     case HTTP_API_HANDLE_MCLIENT:
 	return_code = MHD_HTTP_NOT_IMPLEMENTED;
-	error_page(&page, return_code);
+	error_page(&page, return_code, return_content, quiet_error);
 	break;
     case HTTP_API_HANDLE_NOTFOUND:
 	/*
@@ -570,7 +675,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	 * return an error.
 	 */
 	return_code = MHD_HTTP_NOT_FOUND;
-	error_page(&page, return_code);
+	error_page(&page, return_code, return_content, quiet_error);
 	break;
     case HTTP_API_HANDLE_BADREQUEST:
 	/*
@@ -578,7 +683,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	 * return an error.
 	 */
 	return_code = MHD_HTTP_BAD_REQUEST;
-	error_page(&page, return_code);
+	error_page(&page, return_code, return_content, quiet_error);
 	break;
     case HTTP_API_HANDLE_STATEMENT:
 	printf ("statement\n");
@@ -589,7 +694,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	 */
 	printf ("error\n");
 	return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
-	error_page(&page, return_code);
+	error_page(&page, return_code, return_content, quiet_error);
     }
 
     /*
@@ -601,6 +706,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	response =
 	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
 					     MHD_RESPMEM_MUST_FREE);
+	setContentTypeHeader(response, return_content);
 	ret = MHD_queue_response (connection, return_code, response);
 	MHD_destroy_response (response);
 
@@ -666,6 +772,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
     response =
 	MHD_create_response_from_buffer (strlen (page), (void *) page, 
 					 MHD_RESPMEM_MUST_FREE);
+    setContentTypeHeader(response, return_content);
     ret = MHD_queue_response (connection, return_code, response);
     MHD_destroy_response (response);
 

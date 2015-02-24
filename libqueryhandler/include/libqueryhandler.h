@@ -26,6 +26,17 @@
 #define HTTP_API_HANDLE_NOTFOUND 4
 #define HTTP_API_HANDLE_BADREQUEST 5
 
+#define ACCEPT_HTML "text/html"
+#define ACCEPT_XML "text/xml"
+#define ACCEPT_JSON "application/json"
+#define ACCEPT_CSV "text/csv"
+#define ACCEPT_ALL "*/*"
+
+#define RETURN_HTML 0
+#define RETURN_XML 1
+#define RETURN_JSON 2
+#define RETURN_CSV 3
+
 struct connection_info_struct
 {
     int connectiontype;

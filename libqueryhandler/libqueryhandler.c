@@ -17,6 +17,7 @@
 #define DEFAULT_PASSWORD "monetdb"
 #define ENABLE_AUTH true
 #define DEFAULT_AUTH "basic"
+#define DEFAULT_VERSION "0.0.1"
 
 #define POSTBUFFERSIZE  512
 #define MAXQUERYSIZE     20
@@ -60,6 +61,13 @@ getServerPassword()
 {
     char * server_password = DEFAULT_PASSWORD;
     return server_password;
+}
+
+static char *
+getVersion()
+{
+    char * version = DEFAULT_VERSION;
+    return version;
 }
 
 static int
@@ -139,19 +147,30 @@ mock_cache(const char * tag, const char * page)
 static int
 help_page(char ** result_page)
 {
-    *result_page = (char *) malloc(100 * sizeof(char));
+    char * helppage = "<html>"
+	"<title>CEmbeddedHttpd Help</title>"
+	"<body>"
+	"<h1>Helptext</h1>"
+	"<p>help</p>"
+	"</body></html>\n";
+    *result_page = (char *) malloc(strlen(helppage) * sizeof(char));
 
-    sprintf(*result_page, "<html><body>Hello, browser! help</body></html>\n");
+    sprintf(*result_page, helppage);
     return 0;
 }
 
 static int
 version_page(char ** result_page)
 {
-    char * version = "Version 0.0.1";
-    *result_page = (char *) malloc(100 * sizeof(char));
+    char * version = getVersion();
+    char * versionHTML = "<html>"
+	"<title>CEmbeddedHttpd Version</title>"
+	"<body>"
+	"<p>Version %s</p>"
+	"</body></html>\n";
+    *result_page = (char *) malloc((strlen(versionHTML) + strlen(version)) * sizeof(char));
 
-    sprintf(*result_page, "<html><body>Hello, browser! %s</body></html>\n", version);
+    sprintf(*result_page, versionHTML, version);
     return 0;
 }
 
@@ -160,6 +179,9 @@ error_page(char ** result_page, const int status_code)
 {
     *result_page = (char *) malloc(100 * sizeof(char));
 
+    /*
+     * result depends on mime type
+     */
     sprintf(*result_page, "<html><body>Hello, browser! %i</body></html>\n", status_code);
     return 0;
 }
@@ -169,6 +191,9 @@ result_page(char ** result_page, const int status_code)
 {
     *result_page = (char *) malloc(100 * sizeof(char));
 
+    /*
+     * result depends on mime type
+     */
     sprintf(*result_page, "<html><body>Hello, browser! %i</body></html>\n", status_code);
     return 0;
 }

@@ -115,26 +115,68 @@ mock_authenticate(const char * username, const char * password)
 }
 
 static int 
-mock_database(const char * username, const char * query)
+mock_database(const char * username, const char * query, db_resultset * query_result)
 {
+    /*
+     * [TODO]: login to database with user "username". Run query "query"
+     *         and get resultset in "query_result"
+     */
+    *query_result = 1;
     return 0;
 }
 
 static int
-mock_render_json(char ** result_json)
+mock_render_json(char ** result_json, const db_resultset * query_result)
 {
+    char * renderjson = "{ \"column\" : \"value\" }";
+    
+    if (*query_result == 1) {
+	*result_json = (char *) malloc(strlen(renderjson) * sizeof(char));
+	sprintf(*result_json, renderjson);
+    }
+    
     return 0;
 }
 
 static int
-mock_render_xml()
+mock_render_csv(char ** result_csv, const db_resultset * query_result)
 {
+    char * rendercsv = "column\n"
+	"value\n";
+    
+    if (*query_result == 1) {
+	*result_csv = (char *) malloc(strlen(rendercsv) * sizeof(char));
+	sprintf(*result_csv, rendercsv);
+    }
+    
     return 0;
 }
 
 static int
-mock_render_text()
+mock_render_xml(char ** result_xml, const db_resultset * query_result)
 {
+    char * renderxml = "<xml>"
+	"<value />";
+    
+    if (*query_result == 1) {
+	*result_xml = (char *) malloc(strlen(renderxml) * sizeof(char));
+	sprintf(*result_xml, renderxml);
+    }
+    
+    return 0;
+}
+
+static int
+mock_render_html(char ** result_html, const db_resultset * query_result)
+{
+    char * renderhtml = "<html>"
+	"</html>";
+    
+    if (*query_result == 1) {
+	*result_html = (char *) malloc(strlen(renderhtml) * sizeof(char));
+	sprintf(*result_html, renderhtml);
+    }
+    
     return 0;
 }
 
@@ -206,8 +248,6 @@ version_page(char ** result_page, const int returntype)
 static int
 error_page(char ** result_page, const int status_code, const int returntype, const bool quiet)
 {
-    char * empty = "";
-
     char * errorHTML = "<html>"
 	"<title>CEmbeddedHttpd Version</title>"
 	"<body>"
@@ -221,8 +261,8 @@ error_page(char ** result_page, const int status_code, const int returntype, con
     sprintf(error_code, "%s", status_code);
     
     if (quiet) {
-	*result_page = (char *) malloc(strlen(empty) * sizeof(char));
-	sprintf(*result_page, empty);
+	*result_page = (char *) malloc(strlen(EMPTY) * sizeof(char));
+	sprintf(*result_page, EMPTY);
     } else {
 	/*
 	 * result depends on mime type
@@ -250,34 +290,30 @@ error_page(char ** result_page, const int status_code, const int returntype, con
     return 0;
 }
 
-static int
-result_page(char ** result_page, const int status_code)
-{
-    *result_page = (char *) malloc(100 * sizeof(char));
-
-    /*
-     * result depends on mime type
-     */
-    sprintf(*result_page, "<html><body>Hello, browser! %i</body></html>\n", status_code);
-    return 0;
-}
-
 static void
 setContentTypeHeader(const struct MHD_Response * response, const int returntype)
 {
     switch (returntype) {
     case RETURN_XML:
-	MHD_add_response_header (response, "Content-Type", ACCEPT_XML);
+	MHD_add_response_header (response,
+				 MHD_HTTP_HEADER_CONTENT_TYPE,
+				 ACCEPT_XML);
 	break;
     case RETURN_JSON:
-	MHD_add_response_header (response, "Content-Type", ACCEPT_JSON);
+	MHD_add_response_header (response,
+				 MHD_HTTP_HEADER_CONTENT_TYPE,
+				 ACCEPT_JSON);
 	break;
     case RETURN_CSV:
-	MHD_add_response_header (response, "Content-Type", ACCEPT_CSV);
+	MHD_add_response_header (response,
+				 MHD_HTTP_HEADER_CONTENT_TYPE,
+				 ACCEPT_CSV);
 	break;
     case RETURN_HTML:
     default:
-	MHD_add_response_header (response, "Content-Type", ACCEPT_HTML);
+	MHD_add_response_header (response,
+				 MHD_HTTP_HEADER_CONTENT_TYPE,
+				 ACCEPT_HTML);
     }
 
     return;
@@ -506,8 +542,13 @@ handle_request (void *cls, struct MHD_Connection *connection,
     char * username = NULL;
     char * password = NULL;
     char * query = NULL;
+    // [TODO]: read tag from header
     char * tag = NULL;
     int hostname_len = 0;
+
+    db_resultset query_result = 0;
+    // [TODO]: read setting from config
+    bool handle_http_cache = true;
     
     struct url_query_statements uqs = { 0, 0, false, QUERY_LANGUAGE_SQL, NULL, false };
     struct request_header_list rhl = { 0, 0, NULL, NULL, NULL };
@@ -746,18 +787,52 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	}
     }
 
-    if(mock_database(username, query) == 0) {
-	if (mock_render_json(&page) == 0) {
-	    // TODO: handle no caching
-	    if (mock_cache(tag, page) == 0) {
-		/*
-		 * Query succeeds. default return_code
-		 */
-	    } else {
-		return_code = MHD_HTTP_NOT_MODIFIED;
+    if(mock_database(username, query, &query_result) == 0) {
+	/*
+	 * Query succeeds. default return_code
+	 */
+	switch(return_content) {
+	case RETURN_XML:
+	    if (mock_render_xml(&page, &query_result) != 0) {
+		return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
 	    }
-	} else {
-	    return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+	    break;
+	case RETURN_JSON:
+	    if (mock_render_json(&page, &query_result) != 0) {
+		return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+	    }
+	    break;
+	case RETURN_CSV:
+	    if (mock_render_csv(&page, &query_result) != 0) {
+		return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+	    }
+	    break;
+	    case RETURN_HTML:
+	    default:
+	    if (mock_render_html(&page, &query_result) != 0) {
+		return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+	    }
+	}
+
+	if (return_code != MHD_HTTP_INTERNAL_SERVER_ERROR) { 
+	    if (handle_http_cache) {
+		// [TODO]: free memory of tag
+		if (mock_cache(tag, page) == 0) {
+		    MHD_add_response_header (response,
+					     MHD_HTTP_HEADER_ETAG,
+					     tag);
+		    free(tag);
+		    if (tag == tag) {
+			return_code = MHD_HTTP_NOT_MODIFIED;
+			free(page);
+			page = (char *) malloc(strlen(EMPTY) *
+					       sizeof(char));
+			sprintf(page, EMPTY);
+		    }   
+		} else {
+		    return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+		}
+	    }
 	}
     } else {
 	return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
@@ -766,9 +841,13 @@ handle_request (void *cls, struct MHD_Connection *connection,
     if (uqs.query_statement != NULL) {
 	free(uqs.query_statement);
     }
-
     free_headers(&rhl);
-    result_page(&page, return_code);
+
+    if ((return_code != MHD_HTTP_OK) &&
+	(return_code != MHD_HTTP_NOT_MODIFIED)) {
+	// [TODO]: check if we need to free page first
+	error_page(&page, return_code, return_content, quiet_error);
+    }
     response =
 	MHD_create_response_from_buffer (strlen (page), (void *) page, 
 					 MHD_RESPMEM_MUST_FREE);

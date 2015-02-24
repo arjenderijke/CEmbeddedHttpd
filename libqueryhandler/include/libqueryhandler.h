@@ -37,6 +37,10 @@
 #define RETURN_JSON 2
 #define RETURN_CSV 3
 
+#define EMPTY ""
+
+typedef int db_resultset;
+
 struct connection_info_struct
 {
     int connectiontype;

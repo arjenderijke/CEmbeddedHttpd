@@ -257,8 +257,8 @@ error_page(char ** result_page, const int status_code, const int returntype, con
 	"<version>%s</version>\n";
     char * errorJSON = "{ \"version\" : \"%s\" }\n";
     char * errorCSV = "version\n%s\n";
-    char error_code[3];
-    sprintf(error_code, "%s", status_code);
+    char error_code[3] = "";
+    sprintf(error_code, "%i", status_code);
     
     if (quiet) {
 	*result_page = (char *) malloc(strlen(EMPTY) * sizeof(char));
@@ -514,9 +514,11 @@ void request_completed (void *cls, struct MHD_Connection *connection,
   }
   
   if (con_info->connectiontype == POST) {
-      MHD_destroy_post_processor (con_info->postprocessor);        
-      if (con_info->answerstring) {
-	  free (con_info->answerstring);
+      if (con_info->postprocessor != NULL) {
+	  MHD_destroy_post_processor (con_info->postprocessor);        
+	  if (con_info->answerstring) {
+	      free (con_info->answerstring);
+	  }
       }
   }
   
@@ -552,14 +554,20 @@ handle_request (void *cls, struct MHD_Connection *connection,
     
     struct url_query_statements uqs = { 0, 0, false, QUERY_LANGUAGE_SQL, NULL, false };
     struct request_header_list rhl = { 0, 0, NULL, NULL, NULL };
-    struct connection_info_struct *con_info;
 
     if (*con_cls == NULL) {
+	struct connection_info_struct *con_info;
+	
 	con_info = malloc (sizeof (struct connection_info_struct));
 	if (con_info == NULL) return MHD_NO;
 	con_info->answerstring = NULL;
 
 	if (strcmp(method, "POST") == 0) {
+	    /*
+	     * [TODO]: handle situation where there was a request
+	     *         without the correct contenttype. In that case
+	     *         the next function will return NULL
+	     */
 	    con_info->postprocessor =
 		MHD_create_post_processor (connection, POSTBUFFERSIZE,
 					   iterate_post, (void *) con_info);
@@ -672,7 +680,11 @@ handle_request (void *cls, struct MHD_Connection *connection,
     if (page != NULL) {
 	if (username != NULL) free(username);
 	if (password != NULL) free(password);
-	
+
+	/*
+	 * [TODO]: check what happens here if we did not provide
+	 *         username and password to post request
+	 */
 	free_headers(&rhl);
 	response =
 	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
@@ -766,6 +778,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	//if (nr_of_uploading_clients >= MAXCLIENTS) 
         //return send_page(connection, busypage, MHD_HTTP_SERVICE_UNAVAILABLE);
 	printf("handle post\n");
+	struct connection_info_struct *con_info;
 	
 	MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND,
 				   handle_post_parameters,
@@ -780,6 +793,9 @@ handle_request (void *cls, struct MHD_Connection *connection,
 
 	    return MHD_YES;
         } else {
+	    /*
+	     * [TODO]: make sure answerstring is initialized
+	     */
 	    if (con_info->answerstring != NULL) {
 		query = con_info->answerstring;
 		printf("post query: %s\n", query);
@@ -807,8 +823,8 @@ handle_request (void *cls, struct MHD_Connection *connection,
 		return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
 	    }
 	    break;
-	    case RETURN_HTML:
-	    default:
+	case RETURN_HTML:
+	default:
 	    if (mock_render_html(&page, &query_result) != 0) {
 		return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
 	    }

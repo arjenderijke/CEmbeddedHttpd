@@ -291,7 +291,7 @@ error_page(char ** result_page, const int status_code, const int returntype, con
 	}
     }
     
-    return 0;
+    return MHD_YES;
 }
 
 static void
@@ -583,46 +583,13 @@ handle_request (void *cls, struct MHD_Connection *connection,
     struct url_query_statements uqs = { 0, 0, false, QUERY_LANGUAGE_SQL, NULL, false };
     struct request_header_list rhl = { 0, 0, NULL, NULL, NULL, NULL };
 
-    if (*con_cls == NULL) {
-	struct connection_info_struct *con_info;
-	
-	con_info = malloc (sizeof (struct connection_info_struct));
-	if (con_info == NULL) return MHD_NO;
-	con_info->answerstring = NULL;
-
-	if (strcmp(method, "POST") == 0) {
-	    /*
-	     * [TODO]: handle situation where there was a request
-	     *         without the correct contenttype. In that case
-	     *         the next function will return NULL
-	     */
-	    con_info->postprocessor =
-		MHD_create_post_processor (connection, POSTBUFFERSIZE,
-					   iterate_post, (void *) con_info);
-
-	    if (con_info->postprocessor == NULL) {
-		free (con_info);
-		return MHD_NO;
-	    }
-	    nr_of_uploading_clients++;
-	    con_info->connectiontype = POST;
-	    con_info->answercode = return_code;
-	    //con_info->answerstring = 
-	} else {
-	    con_info->connectiontype = GET;
-	}
-      
-	*con_cls = (void *) con_info;
-	return MHD_YES;
-    }
-
     printf ("New %s request for %s using version %s\n", method, url, version);
 
     MHD_get_connection_values (connection, MHD_HEADER_KIND, handle_httpd_headers,
 			       &rhl);
     printf("headercount: %i\n", rhl.headers_found);
     return_content = setReturnContent(rhl.accept);
-    
+
     /*
      * First, check some parts of the request.
      * This is more important than checking the users password.
@@ -696,6 +663,44 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	MHD_destroy_response (response);
 
 	return ret;
+    }
+
+    /*
+     * Only start with setting up postprocessor after checking
+     * for requirements. Otherwise the error respones will not
+     * be created correct
+     */
+    if (*con_cls == NULL) {
+	struct connection_info_struct *con_info;
+
+	con_info = malloc (sizeof (struct connection_info_struct));
+	if (con_info == NULL) return MHD_NO;
+	con_info->answerstring = NULL;
+
+	if (strcmp(method, "POST") == 0) {
+	    /*
+	     * [TODO]: handle situation where there was a request
+	     *         without the correct contenttype. In that case
+	     *         the next function will return NULL
+	     */
+	    con_info->postprocessor =
+		MHD_create_post_processor (connection, POSTBUFFERSIZE,
+					   iterate_post, (void *) con_info);
+
+	    if (con_info->postprocessor == NULL) {
+		free (con_info);
+		return MHD_NO;
+	    }
+	    nr_of_uploading_clients++;
+	    con_info->connectiontype = POST;
+	    con_info->answercode = return_code;
+	    //con_info->answerstring = 
+	} else {
+	    con_info->connectiontype = GET;
+	}
+
+	*con_cls = (void *) con_info;
+	return MHD_YES;
     }
 
     /*

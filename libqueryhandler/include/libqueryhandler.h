@@ -64,6 +64,7 @@ struct request_header_list {
     char * host;
     char * user_agent;
     char * accept;
+    char * etag;
 };
 
 void run_query_handler();

@@ -80,7 +80,7 @@ authorize(const char * host, const int hostname_len, const char * username)
     hostname[hostname_len] = '\0';
 
     /*
-     * TODO: read settings from file
+     * [TODO]: read settings from file
      */
     if (username == NULL) {
 	if (strcmp(hostname, "localhost") == 0) {
@@ -104,7 +104,7 @@ static int
 mock_authenticate(const char * username, const char * password)
 {
     /*
-     * TODO: authenticate against database
+     * [TODO]: authenticate against database
      */
     if ((strcmp (username, "arjen") != 0) ||
 	(strcmp (password, "arjen") != 0)) {  
@@ -181,8 +181,11 @@ mock_render_html(char ** result_html, const db_resultset * query_result)
 }
 
 static int
-mock_cache(const char * tag, const char * page)
+mock_cache(const char ** tag, const char * page)
 {
+    char * mocktag = "ToCache";
+    *tag = (char *) malloc(strlen(mocktag) * sizeof(char));
+    strcpy(*tag, mocktag);
     return 0;
 }
 
@@ -331,6 +334,9 @@ free_headers(const struct request_header_list * rhl)
     if (rhl->accept != NULL) {
 	free(rhl->accept);
     }
+    if (rhl->etag != NULL) {
+	free(rhl->etag);
+    }
 }
 
 static int
@@ -401,6 +407,10 @@ handle_httpd_headers (void *cls, enum MHD_ValueKind kind, const char *key,
 	rhl->host = malloc(strlen(value) * sizeof(char));
 	strcpy(rhl->host, value);
     }
+    if (strcmp(key, MHD_HTTP_HEADER_ETAG) == 0) {
+	rhl->etag = malloc(strlen(value) * sizeof(char));
+	strcpy(rhl->etag, value);
+    }
 
     printf ("%s: %s\n", key, value);
     return MHD_YES;
@@ -424,7 +434,7 @@ handle_query_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
 	    uqs->query_version = true;
 	    break;
 	case HTTP_QUERY_STATEMENT:
-	    // TODO: handle malloc error
+	    // [TODO]: handle malloc error
 	    uqs->query_statement = malloc(strlen(value) * sizeof(char));
 	    strcpy(uqs->query_statement, value);
 	    break;
@@ -832,19 +842,15 @@ handle_request (void *cls, struct MHD_Connection *connection,
 
 	if (return_code != MHD_HTTP_INTERNAL_SERVER_ERROR) { 
 	    if (handle_http_cache) {
-		// [TODO]: free memory of tag
-		if (mock_cache(tag, page) == 0) {
-		    MHD_add_response_header (response,
-					     MHD_HTTP_HEADER_ETAG,
-					     tag);
-		    free(tag);
-		    if (tag == tag) {
+		if (mock_cache(&tag, page) == 0) {
+		    if ((rhl.etag != NULL) &&
+			(strcmp(rhl.etag, tag) == 0)) {
 			return_code = MHD_HTTP_NOT_MODIFIED;
 			free(page);
 			page = (char *) malloc(strlen(EMPTY) *
 					       sizeof(char));
 			sprintf(page, EMPTY);
-		    }   
+		    }
 		} else {
 		    return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
 		}
@@ -867,6 +873,16 @@ handle_request (void *cls, struct MHD_Connection *connection,
     response =
 	MHD_create_response_from_buffer (strlen (page), (void *) page, 
 					 MHD_RESPMEM_MUST_FREE);
+
+    if (tag != NULL) {
+	if (MHD_add_response_header (response, MHD_HTTP_HEADER_ETAG,
+				     tag) == MHD_NO) {
+
+	    printf("debug: add etag header failed");
+	}
+	free(tag);
+    }
+
     setContentTypeHeader(response, return_content);
     ret = MHD_queue_response (connection, return_code, response);
     MHD_destroy_response (response);

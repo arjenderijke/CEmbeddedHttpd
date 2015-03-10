@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/select.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 
 #include <microhttpd.h>
 #include <uriparser/Uri.h>
@@ -340,6 +341,24 @@ free_headers(const struct request_header_list * rhl)
 }
 
 static int
+handle_accept (void *cls, const struct sockaddr * addr, socklen_t addrlen) {
+    char * client_ip;
+    int can_connect;
+    char * hostname = "localhost";
+    client_ip = (char *) malloc(INET_ADDRSTRLEN * sizeof(char));
+    inet_ntop(addr->sa_family, &(((struct sockaddr_in *)addr)->sin_addr),
+	      client_ip, INET_ADDRSTRLEN);
+    printf("debug: check accept %s\n", client_ip);
+
+    /*
+     * [TODO]: handle reverse dns lookups
+     */
+    can_connect = authorize(hostname, strlen(hostname), NULL);
+    free(client_ip);
+    return can_connect;
+}
+
+static int
 handle_request_uri(const char *url, int *use_request_handler)
 {
     UriParserStateA state;
@@ -554,7 +573,6 @@ handle_request (void *cls, struct MHD_Connection *connection,
     char * username = NULL;
     char * password = NULL;
     char * query = NULL;
-    // [TODO]: read tag from header
     char * tag = NULL;
     int hostname_len = 0;
 
@@ -563,7 +581,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
     bool handle_http_cache = true;
     
     struct url_query_statements uqs = { 0, 0, false, QUERY_LANGUAGE_SQL, NULL, false };
-    struct request_header_list rhl = { 0, 0, NULL, NULL, NULL };
+    struct request_header_list rhl = { 0, 0, NULL, NULL, NULL, NULL };
 
     if (*con_cls == NULL) {
 	struct connection_info_struct *con_info;
@@ -606,36 +624,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
     return_content = setReturnContent(rhl.accept);
     
     /*
-     * First check authorization.
-     * Do not do anything unless a connection is allowed.
-     * Here we only check hostname/ip-address.
-     * [TODO]: rewrite with MHD_AcceptPolicyCallback
-     */
-    hostname_len = strlen(rhl.host) - strlen(strstr(rhl.host, ":"));
-
-    if (authorize(rhl.host, hostname_len, username) == MHD_NO) {
-	return_code = MHD_HTTP_UNAUTHORIZED;
-	error_page(&page, return_code, return_content, quiet_error);
-
-	/*
-	 * If a resultpage has been created, we should return it
-	 * instead of continuing with the request.
-	 */
-	if (page != NULL) {
-	    free_headers(&rhl);
-	    response =
-		MHD_create_response_from_buffer (strlen (page), (void *) page, 
-						 MHD_RESPMEM_MUST_FREE);
-	    setContentTypeHeader(response, return_content);
-	    ret = MHD_queue_response (connection, return_code, response);
-	    MHD_destroy_response (response);
-
-	    return ret;
-	}
-    }
-    
-    /*
-     * Second, check some parts of the request.
+     * First, check some parts of the request.
      * This is more important than checking the users password.
      * We will not allow anything unless these criteria are met.
      */
@@ -667,11 +656,12 @@ handle_request (void *cls, struct MHD_Connection *connection,
     }
 
     /*
-     * Third, check authentification.
+     * Second, check authentification.
      * Only allow a authentificated user to continue.
      * Also check authorization of user/hostname combination.
      */
     username = MHD_basic_auth_get_username_password (connection, &password);
+    hostname_len = strlen(rhl.host) - strlen(strstr(rhl.host, ":"));
     if ((username != NULL) &&
 	(mock_authenticate(username, password) == MHD_YES)) {
 	if (authorize(rhl.host, hostname_len, username) == MHD_NO) {
@@ -867,7 +857,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 
     if ((return_code != MHD_HTTP_OK) &&
 	(return_code != MHD_HTTP_NOT_MODIFIED)) {
-	// [TODO]: check if we need to free page first
+	if (page != NULL) free(page);
 	error_page(&page, return_code, return_content, quiet_error);
     }
     response =
@@ -878,7 +868,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	if (MHD_add_response_header (response, MHD_HTTP_HEADER_ETAG,
 				     tag) == MHD_NO) {
 
-	    printf("debug: add etag header failed");
+	    printf("debug: add etag header failed\n");
 	}
 	free(tag);
     }
@@ -894,8 +884,9 @@ void run_query_handler() {
     struct MHD_Daemon *daemon;
     int listen_port = getPort();
 
-    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port, NULL,
-			       NULL, &handle_request, NULL,
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
 			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
 			       NULL, MHD_OPTION_END);
 

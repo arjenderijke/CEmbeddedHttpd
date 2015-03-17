@@ -10,6 +10,7 @@
 #define HTTP_API_MCLIENT_PATH "mclient"
 
 #define HTTP_QUERY_VERSION 'v'
+#define HTTP_QUERY_HELP 'h'
 #define HTTP_QUERY_STATEMENT 's'
 #define HTTP_QUERY_LANGUAGE 'l'
 #define HTTP_QUERY_MCLIENT 'm'
@@ -53,6 +54,7 @@ struct url_query_statements {
     int statements_found;
     int statements_error;
     bool query_version;
+    bool query_help;
     int query_language;
     char * query_statement;
     bool query_mclient;

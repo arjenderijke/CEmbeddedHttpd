@@ -171,7 +171,7 @@ static int
 mock_render_html(char ** result_html, const db_resultset * query_result)
 {
     char * renderhtml = "<html>"
-	"</html>";
+	"</html>\n";
     
     if (*query_result == 1) {
 	*result_html = (char *) malloc(strlen(renderhtml) * sizeof(char));
@@ -453,6 +453,9 @@ handle_query_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
 	case HTTP_QUERY_VERSION:
 	    uqs->query_version = true;
 	    break;
+	case HTTP_QUERY_HELP:
+	    uqs->query_help = true;
+	    break;
 	case HTTP_QUERY_STATEMENT:
 	    // [TODO]: handle malloc error
 	    uqs->query_statement = malloc(strlen(value) * sizeof(char));
@@ -581,7 +584,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
     // [TODO]: read setting from config
     bool handle_http_cache = true;
     
-    struct url_query_statements uqs = { 0, 0, false, QUERY_LANGUAGE_SQL, NULL, false };
+    struct url_query_statements uqs = { 0, 0, false, false, QUERY_LANGUAGE_SQL, NULL, false };
     struct request_header_list rhl = { 0, 0, NULL, NULL, NULL, NULL };
 
     printf ("debug: New %s request for %s using version %s\n", method, url, version);
@@ -692,12 +695,12 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	    con_info->connectiontype = POST;
 	    con_info->answercode = return_code;
 	    //con_info->answerstring = 
+
+	    *con_cls = (void *) con_info;
+	    return MHD_YES;
 	} else {
 	    con_info->connectiontype = GET;
 	}
-
-	*con_cls = (void *) con_info;
-	return MHD_YES;
     }
 
     /*
@@ -710,6 +713,20 @@ handle_request (void *cls, struct MHD_Connection *connection,
      * Now try to handle the actual request
      */
     handle_request_uri(url, &use_request_handler);
+    if (strcmp(method, MHD_HTTP_METHOD_GET) == 0) {
+	MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND,
+				   handle_query_parameters,
+				   &uqs);
+
+	printf("debug: querycount: %i\n", uqs.statements_found);
+
+	if (use_request_handler == HTTP_API_HANDLE_STATEMENT) {
+	    if (uqs.query_version == true)
+		use_request_handler = HTTP_API_HANDLE_VERSION;
+	    if (uqs.query_help == true)
+		use_request_handler = HTTP_API_HANDLE_HELP;
+	}
+    }
 
     switch(use_request_handler) {
     case HTTP_API_HANDLE_HELP:
@@ -766,14 +783,6 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	MHD_destroy_response (response);
 
 	return ret;
-    }
-
-    if (strcmp(method, MHD_HTTP_METHOD_GET) == 0) {
-	MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND,
-				   handle_query_parameters,
-				   &uqs);
-
-	printf("debug: querycount: %i\n", uqs.statements_found);
     }
 
     if (strcmp(method, MHD_HTTP_METHOD_POST) == 0) {

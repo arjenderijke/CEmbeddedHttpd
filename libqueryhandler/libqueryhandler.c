@@ -22,7 +22,6 @@
 
 #define POSTBUFFERSIZE  512
 #define MAXQUERYSIZE     20
-#define MAXANSWERSIZE   512
 
 #define GET             0
 #define POST            1
@@ -488,7 +487,7 @@ handle_query_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
 	    uqs->statements_error++;
 	}
     }
-    printf ("debug: %s: %s\n", key, value);
+    printf ("debug: query %s: %s\n", key, value);
     return MHD_YES;
 }
 
@@ -510,7 +509,10 @@ static int
 handle_post_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
 			 const char *value)
 {
-    printf ("debug: %s: %s\n", key, value);
+    /*
+     * For now we ignore the query parameters of a post request
+     */
+    printf ("debug: post %s: %s\n", key, value);
     return MHD_YES;
 }
 
@@ -524,23 +526,31 @@ iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
 
     /*
      * [TODO]: concat parts of post data, set responsed if it failes
-     *         and make sure the memory of answerstring is freed
+     *         and make sure the memory of answerstring is freed.
+     *         also handle if a filename was posted. Also
+     *         content_type and transfer_encoding.
      */
-    printf("debug: key : %s\n", key);
+    char *answerstring;
+    printf("debug: key : %s %i %i\n", key, off, size);
     if (strcmp (key, "query") == 0) {
-	if ((size > 0) && (size <= MAXQUERYSIZE)) {
-	    char *answerstring;
-	    answerstring = malloc (MAXANSWERSIZE);
-	    if (!answerstring) return MHD_NO;
+	if (size > 0) {
+	    if (con_info->answerstring == NULL) {
+		answerstring = malloc(size * sizeof(char));
+	    } else {
+		answerstring = realloc(con_info->answerstring,
+				       (strlen(con_info->answerstring) *
+					sizeof(char)) +
+				       (size * sizeof(char)));
+	    }
+	    if (answerstring == NULL) return MHD_NO;
       
-	    snprintf (answerstring, MAXANSWERSIZE, "%s", data);
-	    con_info->answerstring = answerstring;      
+	    answerstring = strncpy(answerstring + off, data, size);
+	    con_info->answerstring = answerstring;
 	} else {
 	  con_info->answerstring = NULL;
 	}
 	return MHD_NO;
     }
-
     return MHD_YES;
 }
 
@@ -576,6 +586,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
     char *page = NULL;
     struct MHD_Response *response;
     int ret;
+    struct connection_info_struct *con_info;
   
     int use_request_handler = HTTP_API_HANDLE_ERROR;
     int return_code = MHD_HTTP_OK;
@@ -681,11 +692,12 @@ handle_request (void *cls, struct MHD_Connection *connection,
      * be created correct
      */
     if (*con_cls == NULL) {
-	struct connection_info_struct *con_info;
-
+	/*
+	 * con_info struct will be freed in request_completed
+	 * function
+	 */
 	con_info = malloc (sizeof (struct connection_info_struct));
 	if (con_info == NULL) return MHD_NO;
-	con_info->answerstring = NULL;
 
 	if (strcmp(method, "POST") == 0) {
 	    /*
@@ -704,7 +716,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	    nr_of_uploading_clients++;
 	    con_info->connectiontype = POST;
 	    con_info->answercode = return_code;
-	    //con_info->answerstring = 
+	    con_info->answerstring = NULL;
 
 	    *con_cls = (void *) con_info;
 	    return MHD_YES;
@@ -730,6 +742,10 @@ handle_request (void *cls, struct MHD_Connection *connection,
 
 	printf("debug: querycount: %i\n", uqs.statements_found);
 
+	/*
+	 * Change the request handler based on the query
+	 * parameters
+	 */
 	if (use_request_handler == HTTP_API_HANDLE_STATEMENT) {
 	    if (uqs.query_version == true)
 		use_request_handler = HTTP_API_HANDLE_VERSION;
@@ -792,7 +808,6 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	//if (nr_of_uploading_clients >= MAXCLIENTS) 
         //return send_page(connection, busypage, MHD_HTTP_SERVICE_UNAVAILABLE);
 	printf("debug: handle post\n");
-	struct connection_info_struct *con_info;
 	
 	MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND,
 				   handle_post_parameters,
@@ -807,9 +822,6 @@ handle_request (void *cls, struct MHD_Connection *connection,
 
 	    return MHD_YES;
         } else {
-	    /*
-	     * [TODO]: make sure answerstring is initialized
-	     */
 	    if (con_info->answerstring != NULL) {
 		query = con_info->answerstring;
 		printf("debug: post query: %s\n", query);

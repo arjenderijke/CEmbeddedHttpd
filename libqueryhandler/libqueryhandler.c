@@ -458,17 +458,23 @@ handle_query_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
 	    break;
 	case HTTP_QUERY_STATEMENT:
 	    // [TODO]: handle malloc error
-	    uqs->query_statement = malloc(strlen(value) * sizeof(char));
-	    strcpy(uqs->query_statement, value);
+	    if ((value != NULL) && (strlen(value) != 0)) {
+		uqs->query_statement = malloc(strlen(value) * sizeof(char));
+		strcpy(uqs->query_statement, value);
+	    } else {
+		uqs->statements_error++;
+	    }
 	    break;
 	case HTTP_QUERY_LANGUAGE:
-	    if (strcmp(value, "mal") == 0) {
-		uqs->query_language = QUERY_LANGUAGE_MAL;
-		break;
-	    }
-	    if (strcmp(value, "sql") == 0) {
-		uqs->query_language = QUERY_LANGUAGE_SQL;
-		break;
+	    if (value != NULL) {
+		if (strcmp(value, "mal") == 0) {
+		    uqs->query_language = QUERY_LANGUAGE_MAL;
+		    break;
+		}
+		if (strcmp(value, "sql") == 0) {
+		    uqs->query_language = QUERY_LANGUAGE_SQL;
+		    break;
+		}
 	    }
 	    uqs->query_language = QUERY_LANGUAGE_UNKNOWN;
 	    uqs->statements_error++;
@@ -725,6 +731,10 @@ handle_request (void *cls, struct MHD_Connection *connection,
 		use_request_handler = HTTP_API_HANDLE_VERSION;
 	    if (uqs.query_help == true)
 		use_request_handler = HTTP_API_HANDLE_HELP;
+	    if (uqs.query_mclient == true)
+		use_request_handler = HTTP_API_HANDLE_MCLIENT;
+	    if (uqs.statements_error > 0)
+		use_request_handler = HTTP_API_HANDLE_BADREQUEST;
 	}
     }
 

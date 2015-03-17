@@ -297,29 +297,31 @@ error_page(char ** result_page, const int status_code, const int returntype, con
 static void
 setContentTypeHeader(const struct MHD_Response * response, const int returntype)
 {
+    int ret;
     switch (returntype) {
     case RETURN_XML:
-	MHD_add_response_header (response,
-				 MHD_HTTP_HEADER_CONTENT_TYPE,
-				 ACCEPT_XML);
+	ret = MHD_add_response_header (response,
+				       MHD_HTTP_HEADER_CONTENT_TYPE,
+				       ACCEPT_XML);
 	break;
     case RETURN_JSON:
-	MHD_add_response_header (response,
-				 MHD_HTTP_HEADER_CONTENT_TYPE,
-				 ACCEPT_JSON);
+	ret = MHD_add_response_header (response,
+				       MHD_HTTP_HEADER_CONTENT_TYPE,
+				       ACCEPT_JSON);
 	break;
     case RETURN_CSV:
-	MHD_add_response_header (response,
-				 MHD_HTTP_HEADER_CONTENT_TYPE,
-				 ACCEPT_CSV);
+	ret = MHD_add_response_header (response,
+				       MHD_HTTP_HEADER_CONTENT_TYPE,
+				       ACCEPT_CSV);
 	break;
     case RETURN_HTML:
     default:
-	MHD_add_response_header (response,
-				 MHD_HTTP_HEADER_CONTENT_TYPE,
-				 ACCEPT_HTML);
+	ret = MHD_add_response_header (response,
+				       MHD_HTTP_HEADER_CONTENT_TYPE,
+				       ACCEPT_HTML);
     }
-
+    if (ret == MHD_NO)
+	printf("debug: adding contenttype header failed\n"); 
     return;
 }
 
@@ -627,6 +629,8 @@ handle_request (void *cls, struct MHD_Connection *connection,
 					     MHD_RESPMEM_MUST_FREE);
 	setContentTypeHeader(response, return_content);
 	ret = MHD_queue_response (connection, return_code, response);
+	if (ret == MHD_NO)
+	    printf("debug: failed to queue respone\n");
 	MHD_destroy_response (response);
 
 	return ret;
@@ -780,21 +784,10 @@ handle_request (void *cls, struct MHD_Connection *connection,
     }
 
     /*
-     * If a resultpage has been created, we should return it
-     * instead of continuing with the request.
+     * if the previous switch block created a page when handling a post
+     * request, the queuing of the response fails. So we postpone that to
+     * after this if-statement.
      */
-    if (page != NULL) {
-	free_headers(&rhl);
-	response =
-	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
-					     MHD_RESPMEM_MUST_FREE);
-	setContentTypeHeader(response, return_content);
-	ret = MHD_queue_response (connection, return_code, response);
-	MHD_destroy_response (response);
-
-	return ret;
-    }
-
     if (strcmp(method, MHD_HTTP_METHOD_POST) == 0) {
 	//if (nr_of_uploading_clients >= MAXCLIENTS) 
         //return send_page(connection, busypage, MHD_HTTP_SERVICE_UNAVAILABLE);
@@ -822,6 +815,24 @@ handle_request (void *cls, struct MHD_Connection *connection,
 		printf("debug: post query: %s\n", query);
 	    }
 	}
+    }
+
+    /*
+     * If a resultpage has been created, we should return it
+     * instead of continuing with the request.
+     */
+    if (page != NULL) {
+	free_headers(&rhl);
+	response =
+	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
+					     MHD_RESPMEM_MUST_FREE);
+	setContentTypeHeader(response, return_content);
+	ret = MHD_queue_response (connection, return_code, response);
+	if (ret == MHD_NO)
+	    printf("debug: failed to queue respone\n");
+	MHD_destroy_response (response);
+
+	return ret;
     }
 
     if(mock_database(username, query, &query_result) == 0) {
@@ -896,6 +907,8 @@ handle_request (void *cls, struct MHD_Connection *connection,
 
     setContentTypeHeader(response, return_content);
     ret = MHD_queue_response (connection, return_code, response);
+    if (ret == MHD_NO)
+	printf("debug: failed to queue respone\n");
     MHD_destroy_response (response);
 
     return ret;

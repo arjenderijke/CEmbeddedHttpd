@@ -341,7 +341,8 @@ free_headers(const struct request_header_list * rhl)
 }
 
 static int
-handle_accept (void *cls, const struct sockaddr * addr, socklen_t addrlen) {
+handle_accept (void *cls, const struct sockaddr * addr, socklen_t addrlen)
+{
     char * client_ip;
     int can_connect;
     char * hostname = "localhost";
@@ -431,7 +432,7 @@ handle_httpd_headers (void *cls, enum MHD_ValueKind kind, const char *key,
 	strcpy(rhl->etag, value);
     }
 
-    printf ("%s: %s\n", key, value);
+    printf ("debug: %s: %s\n", key, value);
     return MHD_YES;
 }
 
@@ -476,7 +477,7 @@ handle_query_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
 	    uqs->statements_error++;
 	}
     }
-    printf ("%s: %s\n", key, value);
+    printf ("debug: %s: %s\n", key, value);
     return MHD_YES;
 }
 
@@ -498,7 +499,7 @@ static int
 handle_post_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
 			 const char *value)
 {
-    printf ("%s: %s\n", key, value);
+    printf ("debug: %s: %s\n", key, value);
     return MHD_YES;
 }
 
@@ -514,7 +515,7 @@ iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
      * [TODO]: concat parts of post data, set responsed if it failes
      *         and make sure the memory of answerstring is freed
      */
-    printf("key : %s\n", key);
+    printf("debug: key : %s\n", key);
     if (strcmp (key, "query") == 0) {
 	if ((size > 0) && (size <= MAXQUERYSIZE)) {
 	    char *answerstring;
@@ -583,11 +584,11 @@ handle_request (void *cls, struct MHD_Connection *connection,
     struct url_query_statements uqs = { 0, 0, false, QUERY_LANGUAGE_SQL, NULL, false };
     struct request_header_list rhl = { 0, 0, NULL, NULL, NULL, NULL };
 
-    printf ("New %s request for %s using version %s\n", method, url, version);
+    printf ("debug: New %s request for %s using version %s\n", method, url, version);
 
     MHD_get_connection_values (connection, MHD_HEADER_KIND, handle_httpd_headers,
 			       &rhl);
-    printf("headercount: %i\n", rhl.headers_found);
+    printf("debug: headercount: %i\n", rhl.headers_found);
     return_content = setReturnContent(rhl.accept);
 
     /*
@@ -648,10 +649,6 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	if (username != NULL) free(username);
 	if (password != NULL) free(password);
 
-	/*
-	 * [TODO]: check what happens here if we did not provide
-	 *         username and password to post request
-	 */
 	free_headers(&rhl);
 	response =
 	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
@@ -667,7 +664,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 
     /*
      * Only start with setting up postprocessor after checking
-     * for requirements. Otherwise the error respones will not
+     * for requirements. Otherwise the error responses will not
      * be created correct
      */
     if (*con_cls == NULL) {
@@ -716,11 +713,11 @@ handle_request (void *cls, struct MHD_Connection *connection,
 
     switch(use_request_handler) {
     case HTTP_API_HANDLE_HELP:
-	printf ("help\n");
+	printf ("debug: help\n");
 	help_page(&page, return_content);
 	break;
     case HTTP_API_HANDLE_VERSION:
-	printf ("version\n");
+	printf ("debug: version\n");
 	version_page(&page, return_content);
 	break;
     case HTTP_API_HANDLE_MCLIENT:
@@ -744,13 +741,13 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	error_page(&page, return_code, return_content, quiet_error);
 	break;
     case HTTP_API_HANDLE_STATEMENT:
-	printf ("statement\n");
+	printf ("debug: statement\n");
 	break;
     default:
 	/*
 	 * Unknown problem, stop processing
 	 */
-	printf ("error\n");
+	printf ("debug: error\n");
 	return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
 	error_page(&page, return_code, return_content, quiet_error);
     }
@@ -776,13 +773,13 @@ handle_request (void *cls, struct MHD_Connection *connection,
 				   handle_query_parameters,
 				   &uqs);
 
-	printf("querycount: %i\n", uqs.statements_found);
+	printf("debug: querycount: %i\n", uqs.statements_found);
     }
 
     if (strcmp(method, MHD_HTTP_METHOD_POST) == 0) {
 	//if (nr_of_uploading_clients >= MAXCLIENTS) 
         //return send_page(connection, busypage, MHD_HTTP_SERVICE_UNAVAILABLE);
-	printf("handle post\n");
+	printf("debug: handle post\n");
 	struct connection_info_struct *con_info;
 	
 	MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND,
@@ -803,7 +800,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	     */
 	    if (con_info->answerstring != NULL) {
 		query = con_info->answerstring;
-		printf("post query: %s\n", query);
+		printf("debug: post query: %s\n", query);
 	    }
 	}
     }

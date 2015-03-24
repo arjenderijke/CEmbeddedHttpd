@@ -51,8 +51,6 @@
 
 #define EMPTY ""
 
-typedef int db_resultset;
-
 struct connection_info_struct
 {
     int connectiontype;

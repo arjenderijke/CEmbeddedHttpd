@@ -8,12 +8,18 @@
 #define HTTP_API_STATEMENT_PATH "statement"
 #define HTTP_API_LANGUAGE_PATH "language"
 #define HTTP_API_MCLIENT_PATH "mclient"
+#define HTTP_API_FORMAT_PATH "format"
 
+/*
+ * For now use short option "h" for help. Later we might use 
+ * it for the host value in a redirect/proxy setup.
+ */
 #define HTTP_QUERY_VERSION 'v'
 #define HTTP_QUERY_HELP 'h'
 #define HTTP_QUERY_STATEMENT 's'
 #define HTTP_QUERY_LANGUAGE 'l'
 #define HTTP_QUERY_MCLIENT 'm'
+#define HTTP_QUERY_FORMAT 'f'
 
 #define QUERY_LANGUAGE_UNKNOWN -1
 #define QUERY_LANGUAGE_MAL 0
@@ -32,6 +38,11 @@
 #define ACCEPT_JSON "application/json"
 #define ACCEPT_CSV "text/csv"
 #define ACCEPT_ALL "*/*"
+
+#define QUERY_FORMAT_HTML "html"
+#define QUERY_FORMAT_XML "xml"
+#define QUERY_FORMAT_CSV "csv"
+#define QUERY_FORMAT_JSON "json"
 
 #define RETURN_HTML 0
 #define RETURN_XML 1
@@ -58,6 +69,7 @@ struct url_query_statements {
     int query_language;
     char * query_statement;
     bool query_mclient;
+    int query_format;
 };
 
 struct request_header_list {

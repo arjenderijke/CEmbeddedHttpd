@@ -483,6 +483,28 @@ handle_query_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
 	case HTTP_QUERY_MCLIENT:
 	    uqs->query_mclient = true;
 	    break;
+	case HTTP_QUERY_FORMAT:
+	    if (value != NULL) {
+		if (strcmp(value, QUERY_FORMAT_HTML) == 0) {
+		    uqs->query_format = RETURN_HTML;
+		    break;
+		}
+		if (strcmp(value, QUERY_FORMAT_XML) == 0) {
+		    uqs->query_format = RETURN_XML;
+		    break;
+		}
+		if (strcmp(value, QUERY_FORMAT_CSV) == 0) {
+		    uqs->query_format = RETURN_CSV;
+		    break;
+		}
+		if (strcmp(value, QUERY_FORMAT_JSON) == 0) {
+		    uqs->query_format = RETURN_JSON;
+		    break;
+		}
+	    }
+	    uqs->query_format = RETURN_HTML;
+	    uqs->statements_error++;
+	    break;
 	default:
 	    uqs->statements_error++;
 	}
@@ -603,7 +625,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
     // [TODO]: read setting from config
     bool handle_http_cache = true;
     
-    struct url_query_statements uqs = { 0, 0, false, false, QUERY_LANGUAGE_SQL, NULL, false };
+    struct url_query_statements uqs = { 0, 0, false, false, QUERY_LANGUAGE_SQL, NULL, false, 0 };
     struct request_header_list rhl = { 0, 0, NULL, NULL, NULL, NULL };
 
     printf ("debug: New %s request for %s using version %s\n", method, url, version);
@@ -755,6 +777,14 @@ handle_request (void *cls, struct MHD_Connection *connection,
 		use_request_handler = HTTP_API_HANDLE_MCLIENT;
 	    if (uqs.statements_error > 0)
 		use_request_handler = HTTP_API_HANDLE_BADREQUEST;
+	    /*
+	     * Only use the short format parameter if the return_content
+	     * variable was not changed by a header. That one is preferred.
+	     * Until here, the short format parameter does not change
+	     * the return format.
+	     */
+	    if (return_content == RETURN_HTML)
+		return_content = uqs.query_format;
 	}
     }
 

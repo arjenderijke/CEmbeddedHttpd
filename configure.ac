@@ -43,7 +43,7 @@ AC_ARG_ENABLE(liburiparser,
 	have_liburiparser="$withval")
 
 if test "x$have_liburiparser" = xyes; then
-      PKG_CHECK_MODULES([liburiparser], [liburiparser],
+      PKG_CHECK_MODULES([URIPARSER], [liburiparser],
       		[have_liburiparser=yes],
 		[have_liburiparser=no; why_have_liburiparser="(liburiparser not found)"])
 fi

@@ -17,7 +17,7 @@ AC_PROG_INSTALL
 AM_PROG_CC_C_O
 
 # Check for pkg-config version
-PKG_PROG_PKG_CONFIG([0.22])
+PKG_PROG_PKG_CONFIG([0.26])
 
 # Checks for libraries.
 have_microhttpd=no

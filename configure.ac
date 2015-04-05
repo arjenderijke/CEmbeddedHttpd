@@ -16,6 +16,9 @@ AC_PROG_INSTALL
 #AC_PROG_RANLIB
 AM_PROG_CC_C_O
 
+# Check for pkg-config version
+PKG_PROG_PKG_CONFIG([0.22])
+
 # Checks for libraries.
 have_microhttpd=no
 AC_SEARCH_LIBS([MHD_start_daemon], [microhttpd], [have_microhttpd=yes])

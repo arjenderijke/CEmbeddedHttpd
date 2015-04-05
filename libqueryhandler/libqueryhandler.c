@@ -734,7 +734,9 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	/*
 	 * Unknown problem, stop processing
 	 */
+#if DEBUG
 	printf ("debug: error\n");
+#endif
 	return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
 	error_page(&page, return_code, return_content, quiet_error);
     }
@@ -747,8 +749,9 @@ handle_request (void *cls, struct MHD_Connection *connection,
     if (strcmp(method, MHD_HTTP_METHOD_POST) == 0) {
 	//if (nr_of_uploading_clients >= MAXCLIENTS) 
         //return send_page(connection, busypage, MHD_HTTP_SERVICE_UNAVAILABLE);
+#if DEBUG
 	printf("debug: handle post\n");
-	
+#endif	
 	MHD_get_connection_values (connection, MHD_GET_ARGUMENT_KIND,
 				   handle_post_parameters,
 				   NULL);
@@ -764,7 +767,9 @@ handle_request (void *cls, struct MHD_Connection *connection,
         } else {
 	    if (con_info->answerstring != NULL) {
 		query = con_info->answerstring;
+#if DEBUG
 		printf("debug: post query: %s\n", query);
+#endif
 	    }
 	}
     }
@@ -781,7 +786,9 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	setContentTypeHeader(response, return_content);
 	ret = MHD_queue_response (connection, return_code, response);
 	if (ret == MHD_NO)
+#if DEBUG
 	    printf("debug: failed to queue respone\n");
+#endif
 	MHD_destroy_response (response);
 
 	return ret;
@@ -862,7 +869,9 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	if (MHD_add_response_header (response, MHD_HTTP_HEADER_ETAG,
 				     tag) == MHD_NO) {
 
+#if DEBUG
 	    printf("debug: add etag header failed\n");
+#endif
 	}
 	free(tag);
     }
@@ -870,7 +879,9 @@ handle_request (void *cls, struct MHD_Connection *connection,
     setContentTypeHeader(response, return_content);
     ret = MHD_queue_response (connection, return_code, response);
     if (ret == MHD_NO)
+#if DEBUG
 	printf("debug: failed to queue respone\n");
+#endif
     MHD_destroy_response (response);
 
     return ret;

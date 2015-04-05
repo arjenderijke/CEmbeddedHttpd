@@ -71,7 +71,12 @@ if test "x{have_liburiparser}" = xno; then
 fi
 
 have_cunit=no
-AC_SEARCH_LIBS([MHD_start_daemon], [libcunit1], [have_cunit=yes])
+AC_SEARCH_LIBS([CU_registry_initialized], [cunit], [have_cunit=yes])
+
+AM_CONDITIONAL([HAVE_UNIT], [test "x${have_cunit}" = xyes])
+if test "x${have_cunit}" = xyes; then
+   AC_DEFINE([HAVE_UNIT], 1, [unittests enabled])
+fi
 
 AC_ARG_ENABLE([debug],
 	[ --enable-debug enable debug output],
@@ -91,6 +96,7 @@ AC_CONFIG_FILES([Makefile
 		 libexamples/include/Makefile
 		 libexamples/Makefile
 		 libqueryhandler/include/Makefile
+		 libqueryhandler/unittest/Makefile
 		 libqueryhandler/Makefile
                  src/Makefile])
 AC_OUTPUT

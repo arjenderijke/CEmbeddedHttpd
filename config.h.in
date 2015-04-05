@@ -42,6 +42,9 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
+/* unittests enabled */
+#undef HAVE_UNIT
+
 /* Define to 1 if the system has the type `_Bool'. */
 #undef HAVE__BOOL
 

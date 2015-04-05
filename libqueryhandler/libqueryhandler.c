@@ -811,6 +811,12 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	    break;
 	case RETURN_HTML:
 	default:
+	    /* [TODO]: return 406
+	     *         also look at 409 conflict in other case
+	     *         return 404 when url is not available,
+	     *         for example /nothere
+	     *         check all available http codes
+	     */
 	    if (mock_render_html(&page, &query_result) != 0) {
 		return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
 	    }
@@ -850,6 +856,10 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	MHD_create_response_from_buffer (strlen (page), (void *) page, 
 					 MHD_RESPMEM_MUST_FREE);
 
+    /*
+     * [TODO]: add transfer-encoding header
+     *         add server header
+     */
     if (tag != NULL) {
 	if (MHD_add_response_header (response, MHD_HTTP_HEADER_ETAG,
 				     tag) == MHD_NO) {

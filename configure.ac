@@ -42,11 +42,11 @@ AC_ARG_ENABLE(liburiparser,
 		[liburiparser library is installed in DIR]),
 	have_liburiparser="$withval")
 
-#if test "x$have_liburiparser" = xauto; then
-#      PKG_CHECK_MODULES([liburiparser], [liburiparser],
-#      		[have_liburiparser=yes],
-#		[have_liburiparser=no; why_have_liburiparser="(liburiparser not found)"])
-#fi
+if test "x$have_liburiparser" = xyes; then
+      PKG_CHECK_MODULES([liburiparser], [liburiparser],
+      		[have_liburiparser=yes],
+		[have_liburiparser=no; why_have_liburiparser="(liburiparser not found)"])
+fi
 
 URIPARSER_MISSING="Please install uriparser 0.6.4 or later."
 

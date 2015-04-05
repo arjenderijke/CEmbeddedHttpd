@@ -1,6 +1,4 @@
-#if !HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 #include <sys/types.h>
 #include <sys/select.h>
@@ -890,6 +888,10 @@ void run_query_handler() {
 
     if (NULL == daemon)
 	return;
+
+#if DEBUG
+    printf("debug: server started\n");
+#endif
 
     getchar ();
 

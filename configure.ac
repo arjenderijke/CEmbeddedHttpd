@@ -67,6 +67,14 @@ if test "x{have_liburiparser}" = xno; then
    ------------------------------])
 fi
 
+AC_ARG_ENABLE([debug],
+	[ --enable-debug enable debug output],
+	[debug=${enableval}], [debug=no])
+
+if test "x${debug}" = xyes; then
+   AC_DEFINE([DEBUG], 1, [debug output enabled])
+fi
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
 

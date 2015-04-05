@@ -67,6 +67,9 @@ if test "x{have_liburiparser}" = xno; then
    ------------------------------])
 fi
 
+have_cunit=no
+AC_SEARCH_LIBS([MHD_start_daemon], [libcunit1], [have_cunit=yes])
+
 AC_ARG_ENABLE([debug],
 	[ --enable-debug enable debug output],
 	[debug=${enableval}], [debug=no])

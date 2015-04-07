@@ -260,8 +260,9 @@ handle_accept (void *cls, const struct sockaddr * addr, socklen_t addrlen)
     client_ip = (char *) malloc(INET_ADDRSTRLEN * sizeof(char));
     inet_ntop(addr->sa_family, &(((struct sockaddr_in *)addr)->sin_addr),
 	      client_ip, INET_ADDRSTRLEN);
+#if DEBUG
     printf("debug: check accept %s\n", client_ip);
-
+#endif
     /*
      * [TODO]: handle reverse dns lookups
      */
@@ -342,8 +343,9 @@ handle_httpd_headers (void *cls, enum MHD_ValueKind kind, const char *key,
 	rhl->etag = malloc(strlen(value) * sizeof(char));
 	strcpy(rhl->etag, value);
     }
-
+#if DEBUG
     printf ("debug: %s: %s\n", key, value);
+#endif
     return MHD_YES;
 }
 
@@ -419,7 +421,9 @@ handle_query_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
 	    uqs->statements_error++;
 	}
     }
+#if DEBUG
     printf ("debug: query %s: %s\n", key, value);
+#endif
     return MHD_YES;
 }
 
@@ -444,7 +448,9 @@ handle_post_parameters (void *cls, enum MHD_ValueKind kind, const char *key,
     /*
      * For now we ignore the query parameters of a post request
      */
+#if DEBUG
     printf ("debug: post %s: %s\n", key, value);
+#endif
     return MHD_YES;
 }
 
@@ -463,7 +469,9 @@ iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
      *         content_type and transfer_encoding.
      */
     char *answerstring;
+#if DEBUG
     printf("debug: key : %s %i %i\n", key, off, size);
+#endif
     if (strcmp (key, "query") == 0) {
 	if (size > 0) {
 	    if (con_info->answerstring == NULL) {
@@ -538,11 +546,14 @@ handle_request (void *cls, struct MHD_Connection *connection,
     struct url_query_statements uqs = { 0, 0, false, false, QUERY_LANGUAGE_SQL, NULL, false, 0 };
     struct request_header_list rhl = { 0, 0, NULL, NULL, NULL, NULL };
 
+#if DEBUG
     printf ("debug: New %s request for %s using version %s\n", method, url, version);
-
+#endif
     MHD_get_connection_values (connection, MHD_HEADER_KIND, handle_httpd_headers,
 			       &rhl);
+#if DEBUG
     printf("debug: headercount: %i\n", rhl.headers_found);
+#endif
     return_content = setReturnContent(rhl.accept);
 
     /*
@@ -573,7 +584,9 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	setContentTypeHeader(response, return_content);
 	ret = MHD_queue_response (connection, return_code, response);
 	if (ret == MHD_NO)
+#if DEBUG
 	    printf("debug: failed to queue respone\n");
+#endif
 	MHD_destroy_response (response);
 
 	return ret;
@@ -672,8 +685,9 @@ handle_request (void *cls, struct MHD_Connection *connection,
 				   handle_query_parameters,
 				   &uqs);
 
+#if DEBUG
 	printf("debug: querycount: %i\n", uqs.statements_found);
-
+#endif
 	/*
 	 * Change the request handler based on the query
 	 * parameters
@@ -700,11 +714,15 @@ handle_request (void *cls, struct MHD_Connection *connection,
 
     switch(use_request_handler) {
     case HTTP_API_HANDLE_HELP:
+#if DEBUG
 	printf ("debug: help\n");
+#endif
 	help_page(&page, return_content);
 	break;
     case HTTP_API_HANDLE_VERSION:
+#if DEBUG
 	printf ("debug: version\n");
+#endif
 	version_page(&page, return_content);
 	break;
     case HTTP_API_HANDLE_MCLIENT:
@@ -728,7 +746,9 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	error_page(&page, return_code, return_content, quiet_error);
 	break;
     case HTTP_API_HANDLE_STATEMENT:
+#if DEBUG
 	printf ("debug: statement\n");
+#endif
 	break;
     default:
 	/*

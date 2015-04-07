@@ -7,6 +7,8 @@
 #include "libqueryhandler.c"
 #include <microhttpd.h>
 
+static int oneone;
+
 struct CBC
 {
   char *buf;
@@ -39,6 +41,14 @@ curlExcessFound(CURL *c, curl_infotype type, char *data, size_t size, void *cls)
   return 0;
 }
 
+static size_t header_callback(char *buffer, size_t size,
+                              size_t nitems, void *userdata)
+{
+  /* received header is nitems * size long in 'buffer' NOT ZERO TERMINATED */
+  /* 'userdata' is set with CURLOPT_WRITEDATA */
+  return nitems * size;
+}
+
 int initCurl(void)
 {
     return 0;
@@ -55,15 +65,19 @@ void testConnect(void)
     struct MHD_Daemon *daemon;
     CURL *c;
     char buf[2048];
+    char head[2048];
     struct CBC cbc;
     CURLcode errornum;
     int excess_found = 0;
+    long resp;
+    char *ct;
 
     cbc.buf = buf;
     cbc.size = 2048;
     cbc.pos = 0;
 
     int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
 
     daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
 			       &handle_accept, NULL,
@@ -75,7 +89,7 @@ void testConnect(void)
 	return;
 
     c = curl_easy_init ();
-    curl_easy_setopt (c, CURLOPT_URL, "http://127.0.0.1:8888/hello_world");
+    curl_easy_setopt (c, CURLOPT_URL, "http://127.0.0.1:8888/version");
     curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
     curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
     curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
@@ -84,12 +98,28 @@ void testConnect(void)
     curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
     curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
     curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
-    curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &head);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
     curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
-    if (CURLE_OK != (errornum = curl_easy_perform (c))) {
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum == 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_UNAUTHORIZED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
 	fprintf (stderr,
 		 "curl_easy_perform failed: `%s'\n",
 		 curl_easy_strerror (errornum));
+#endif
 	curl_easy_cleanup (c);
 	MHD_stop_daemon (daemon);
 	return;
@@ -103,6 +133,8 @@ void testConnect(void)
 
 int main()
 {
+    oneone = 1;
+
     CU_pSuite pSuite = NULL;
  
     if (CU_initialize_registry() != CUE_SUCCESS)

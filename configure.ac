@@ -101,7 +101,7 @@ if test "x${have_libcurl}" = xyes; then
 fi
 
 AC_ARG_ENABLE([debug],
-	[ --enable-debug enable debug output],
+	[  --enable-debug enable debug output],
 	[debug=${enableval}], [debug=no])
 
 if test "x${debug}" = xyes; then

@@ -6,18 +6,18 @@
 #include "libqueryhandler.c"
 #include <microhttpd.h>
 
-int init_suite1(void)
+int initStatic(void)
 {
     return 0;
 
 }
  
-int clean_suite1(void)
+int cleanStatic(void)
 {
     return 0;
 }
 
-void testCurl(void)
+void testGetPort(void)
 {
     int a = getPort();
     CU_ASSERT(a == DEFAULT_PORT);
@@ -31,13 +31,13 @@ int main()
     if (CU_initialize_registry() != CUE_SUCCESS)
 	return CU_get_error();
  
-    pSuite = CU_add_suite("Suite_1", init_suite1, clean_suite1);
+    pSuite = CU_add_suite("StaticFuncs", initStatic, cleanStatic);
     if (pSuite == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
  
-    if (CU_add_test(pSuite, "test of curl", testCurl) == NULL) {
+    if (CU_add_test(pSuite, "test of static functions", testGetPort) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }

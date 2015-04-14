@@ -2,6 +2,7 @@
 #include <string.h>
 #include "CUnit/Basic.h"
 #include "curl/curl.h"
+#include <stdbool.h>
 
 #include "libqueryhandler.h"
 #include "libqueryhandler.c"
@@ -11,42 +12,67 @@ static int oneone;
 
 struct CBC
 {
-  char *buf;
-  size_t pos;
-  size_t size;
+    char *buf;
+    size_t pos;
+    size_t size;
+};
+
+struct return_headers
+{
+    int header_count;
+    int content_length;
+    bool has_date;
+    char * etag;
 };
 
 static size_t
 copyBuffer (void *ptr, size_t size, size_t nmemb, void *ctx)
 {
-  struct CBC *cbc = ctx;
+    struct CBC *cbc = ctx;
 
-  if (cbc->pos + size * nmemb > cbc->size)
-    return 0;                   /* overflow */
-  memcpy (&cbc->buf[cbc->pos], ptr, size * nmemb);
-  cbc->pos += size * nmemb;
-  return size * nmemb;
+    if (cbc->pos + size * nmemb > cbc->size)
+	return 0;                   /* overflow */
+    memcpy (&cbc->buf[cbc->pos], ptr, size * nmemb);
+    cbc->pos += size * nmemb;
+    return size * nmemb;
 }
 
 static int
 curlExcessFound(CURL *c, curl_infotype type, char *data, size_t size, void *cls)
 {
-  static const char *excess_found = "Excess found";
-  const size_t str_size = strlen (excess_found);
+    static const char *excess_found = "Excess found";
+    const size_t str_size = strlen (excess_found);
 
-  if (CURLINFO_TEXT == type
-      && size >= str_size
-      && 0 == strncmp(excess_found, data, str_size))
-    *(int *)cls = 1;
-  return 0;
+    if (CURLINFO_TEXT == type
+	&& size >= str_size
+	&& 0 == strncmp(excess_found, data, str_size))
+	*(int *)cls = 1;
+    return 0;
 }
 
 static size_t header_callback(char *buffer, size_t size,
                               size_t nitems, void *userdata)
 {
-  /* received header is nitems * size long in 'buffer' NOT ZERO TERMINATED */
-  /* 'userdata' is set with CURLOPT_WRITEDATA */
-  return nitems * size;
+    int etag_len;
+    /* received header is nitems * size long in 'buffer' NOT ZERO TERMINATED */
+    /* 'userdata' is set with CURLOPT_WRITEDATA */
+    ((struct return_headers *) userdata)->header_count++;
+    if (strncmp(buffer, "Date: ", strlen("Date: ")) == 0) {
+	((struct return_headers *) userdata)->has_date = true;
+    }
+    if (strncmp(buffer, "Content-Length: ", strlen("Content-Length: ")) == 0) {
+	((struct return_headers *) userdata)->content_length =
+	    atoi(&buffer[strlen("Content-Length: ")]);
+    }
+    if (strncmp(buffer, "ETag: ", strlen("ETag: ")) == 0) {
+	etag_len = strlen(buffer) - strlen("ETag: ");
+	((struct return_headers *) userdata)->etag =
+	    malloc(etag_len * sizeof(char));
+	strncpy(&buffer[strlen("ETag: ")],
+		((struct return_headers *) userdata)->etag,
+		etag_len);
+    }
+    return nitems * size;
 }
 
 int initCurl(void)
@@ -136,12 +162,12 @@ void testAuth(void)
     struct MHD_Daemon *daemon;
     CURL *c;
     char buf[2048];
-    char head[2048];
     struct CBC cbc;
     CURLcode errornum;
     int excess_found = 0;
     long resp;
     char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
 
     cbc.buf = buf;
     cbc.size = 2048;
@@ -169,7 +195,7 @@ void testAuth(void)
     curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
     curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
     curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
-    curl_easy_setopt (c, CURLOPT_HEADERDATA, &head);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
     curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
     curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
     curl_easy_setopt (c, CURLOPT_USERPWD, "arjen:arjen");
@@ -204,6 +230,13 @@ void testAuth(void)
     curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
     CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
 
+    CU_ASSERT(rh.header_count == 6);
+    CU_ASSERT_TRUE(rh.has_date);
+    CU_ASSERT(rh.content_length == 89);
+    CU_ASSERT_PTR_EQUAL(rh.etag, NULL);
+
+    if (rh.etag != NULL) free(rh.etag);
+
     curl_easy_cleanup (c);
     MHD_stop_daemon (daemon);
 
@@ -216,12 +249,12 @@ void testHttp1(void)
     struct MHD_Daemon *daemon;
     CURL *c;
     char buf[2048];
-    char head[2048];
     struct CBC cbc;
     CURLcode errornum;
     int excess_found = 0;
     long resp;
     char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
 
     cbc.buf = buf;
     cbc.size = 2048;
@@ -250,7 +283,7 @@ void testHttp1(void)
     curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
     curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
     curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
-    curl_easy_setopt (c, CURLOPT_HEADERDATA, &head);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
     curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
     curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
     curl_easy_setopt (c, CURLOPT_USERPWD, "arjen:arjen");
@@ -291,12 +324,12 @@ void testHttp1WrongUser(void)
     struct MHD_Daemon *daemon;
     CURL *c;
     char buf[2048];
-    char head[2048];
     struct CBC cbc;
     CURLcode errornum;
     int excess_found = 0;
     long resp;
     char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
 
     cbc.buf = buf;
     cbc.size = 2048;
@@ -325,7 +358,7 @@ void testHttp1WrongUser(void)
     curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
     curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
     curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
-    curl_easy_setopt (c, CURLOPT_HEADERDATA, &head);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
     curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
     curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
     curl_easy_setopt (c, CURLOPT_USERPWD, "piet:arjen");
@@ -366,12 +399,12 @@ void testHttp1WrongPasswd(void)
     struct MHD_Daemon *daemon;
     CURL *c;
     char buf[2048];
-    char head[2048];
     struct CBC cbc;
     CURLcode errornum;
     int excess_found = 0;
     long resp;
     char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
 
     cbc.buf = buf;
     cbc.size = 2048;
@@ -400,7 +433,7 @@ void testHttp1WrongPasswd(void)
     curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
     curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
     curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
-    curl_easy_setopt (c, CURLOPT_HEADERDATA, &head);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
     curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
     curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
     curl_easy_setopt (c, CURLOPT_USERPWD, "arjen:piet");

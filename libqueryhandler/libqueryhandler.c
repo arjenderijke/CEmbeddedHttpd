@@ -80,6 +80,7 @@ authorize(const char * host, const int hostname_len, const char * username)
 
     /*
      * [TODO]: read settings from file
+     *         convert ip address to/from hostname
      */
     if (username == NULL) {
 	if (strcmp(hostname, "localhost") == 0) {

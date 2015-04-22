@@ -5,7 +5,8 @@ check_PROGRAMS = \
 if HAVE_CURL
   check_PROGRAMS += testcurl \
     testhttp10 \
-    testpost
+    testpost \
+    testbasic
 endif
 
 TESTS = $(check_PROGRAMS)
@@ -30,10 +31,15 @@ testpost_SOURCES = testpost.c
 testpost_CPPFLAGS = -I$(top_srcdir)/libqueryhandler/include -I$(top_srcdir)/libqueryhandler
 testpost_LDADD = $(top_builddir)/libqueryhandler/libqueryhandler.la
 
+testbasic_SOURCES = testbasic.c
+testbasic_CPPFLAGS = -I$(top_srcdir)/libqueryhandler/include -I$(top_srcdir)/libqueryhandler
+testbasic_LDADD = $(top_builddir)/libqueryhandler/libqueryhandler.la
+
 CLEANFILES = cunit_testall-Listing.xml \
              cunit_testall-Results.xml \
              testmock \
              testcurl \
              queryhandler \
              testhttp10 \
-             testpost
+             testpost \
+             testbasic

@@ -262,6 +262,886 @@ void testPostRoot(void)
     CU_ASSERT(excess_found == 0);
 }
 
+void testPostString(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888");
+    curl_easy_setopt (c, CURLOPT_POSTFIELDS, "hello world");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "arjen:arjen");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+    CU_ASSERT(resp == MHD_HTTP_OK);
+
+    curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+    CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+    CU_ASSERT(rh.header_count == 6);
+    CU_ASSERT_TRUE(rh.has_date);
+    CU_ASSERT(rh.content_length == 14);
+    CU_ASSERT_STRING_EQUAL(rh.etag, "ToCache");
+    
+    if (rh.etag != NULL) free(rh.etag);
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 14);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testPostStringRoot(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888/");
+    curl_easy_setopt (c, CURLOPT_POSTFIELDS, "hello world");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "arjen:arjen");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+    CU_ASSERT(resp == MHD_HTTP_OK);
+
+    curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+    CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+    CU_ASSERT(rh.header_count == 6);
+    CU_ASSERT_TRUE(rh.has_date);
+    CU_ASSERT(rh.content_length == 14);
+    CU_ASSERT_STRING_EQUAL(rh.etag, "ToCache");
+
+    if (rh.etag != NULL) free(rh.etag);
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 14);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testPostField(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888");
+    curl_easy_setopt (c, CURLOPT_POSTFIELDS, "a=1");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "arjen:arjen");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+    CU_ASSERT(resp == MHD_HTTP_OK);
+
+    curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+    CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+    CU_ASSERT(rh.header_count == 6);
+    CU_ASSERT_TRUE(rh.has_date);
+    CU_ASSERT(rh.content_length == 14);
+    CU_ASSERT_STRING_EQUAL(rh.etag, "ToCache");
+    
+    if (rh.etag != NULL) free(rh.etag);
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 14);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testPostFieldRoot(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888/");
+    curl_easy_setopt (c, CURLOPT_POSTFIELDS, "a=1");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "arjen:arjen");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+    CU_ASSERT(resp == MHD_HTTP_OK);
+
+    curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+    CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+    CU_ASSERT(rh.header_count == 6);
+    CU_ASSERT_TRUE(rh.has_date);
+    CU_ASSERT(rh.content_length == 14);
+    CU_ASSERT_STRING_EQUAL(rh.etag, "ToCache");
+
+    if (rh.etag != NULL) free(rh.etag);
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 14);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testPostPassword(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888");
+    curl_easy_setopt (c, CURLOPT_POSTFIELDS, "a=1");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "arjen:piet");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_UNAUTHORIZED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+    CU_ASSERT(resp == MHD_HTTP_OK);
+
+    curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+    CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+    CU_ASSERT(rh.header_count == 6);
+    CU_ASSERT_TRUE(rh.has_date);
+    CU_ASSERT(rh.content_length == 14);
+    CU_ASSERT_STRING_EQUAL(rh.etag, "ToCache");
+    
+    if (rh.etag != NULL) free(rh.etag);
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 14);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testPostPasswordRoot(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888/");
+    curl_easy_setopt (c, CURLOPT_POSTFIELDS, "a=1");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "arjen:piet");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_UNAUTHORIZED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+    CU_ASSERT(resp == MHD_HTTP_OK);
+
+    curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+    CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+    CU_ASSERT(rh.header_count == 6);
+    CU_ASSERT_TRUE(rh.has_date);
+    CU_ASSERT(rh.content_length == 14);
+    CU_ASSERT_STRING_EQUAL(rh.etag, "ToCache");
+
+    if (rh.etag != NULL) free(rh.etag);
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 14);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testPostUser(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888");
+    curl_easy_setopt (c, CURLOPT_POSTFIELDS, "a=1");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "piet:arjen");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_UNAUTHORIZED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+    CU_ASSERT(resp == MHD_HTTP_OK);
+
+    curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+    CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+    CU_ASSERT(rh.header_count == 6);
+    CU_ASSERT_TRUE(rh.has_date);
+    CU_ASSERT(rh.content_length == 14);
+    CU_ASSERT_STRING_EQUAL(rh.etag, "ToCache");
+    
+    if (rh.etag != NULL) free(rh.etag);
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 14);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testPostUserRoot(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888/");
+    curl_easy_setopt (c, CURLOPT_POSTFIELDS, "a=1");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "piet:arjen");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_UNAUTHORIZED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+    CU_ASSERT(resp == MHD_HTTP_OK);
+
+    curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+    CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+    CU_ASSERT(rh.header_count == 6);
+    CU_ASSERT_TRUE(rh.has_date);
+    CU_ASSERT(rh.content_length == 14);
+    CU_ASSERT_STRING_EQUAL(rh.etag, "ToCache");
+
+    if (rh.etag != NULL) free(rh.etag);
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 14);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testPostWrong(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888");
+    curl_easy_setopt (c, CURLOPT_POSTFIELDS, "a=1");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "piet:piet");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_UNAUTHORIZED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+    CU_ASSERT(resp == MHD_HTTP_OK);
+
+    curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+    CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+    CU_ASSERT(rh.header_count == 6);
+    CU_ASSERT_TRUE(rh.has_date);
+    CU_ASSERT(rh.content_length == 14);
+    CU_ASSERT_STRING_EQUAL(rh.etag, "ToCache");
+    
+    if (rh.etag != NULL) free(rh.etag);
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 14);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testPostWrongRoot(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888/");
+    curl_easy_setopt (c, CURLOPT_POSTFIELDS, "a=1");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "piet:wrong");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_UNAUTHORIZED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+    CU_ASSERT(resp == MHD_HTTP_OK);
+
+    curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+    CU_ASSERT_STRING_EQUAL(ct, ACCEPT_HTML);
+
+    CU_ASSERT(rh.header_count == 6);
+    CU_ASSERT_TRUE(rh.has_date);
+    CU_ASSERT(rh.content_length == 14);
+    CU_ASSERT_STRING_EQUAL(rh.etag, "ToCache");
+
+    if (rh.etag != NULL) free(rh.etag);
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 14);
+    CU_ASSERT(excess_found == 0);
+}
+
 int main()
 {
     oneone = 1;
@@ -286,57 +1166,57 @@ int main()
 	CU_cleanup_registry();
 	return CU_get_error();
     }
-    /*
-    if (CU_add_test(pSuite, "test http 1.0 auth", testHttp10Auth) == NULL) {
+
+    if (CU_add_test(pSuite, "test post string", testPostString) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test http 1.0 auth root", testHttp10AuthRoot) == NULL) {
+    if (CU_add_test(pSuite, "test post string root", testPostStringRoot) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test http 1.0 wrong password", testHttp10User) == NULL) {
+    if (CU_add_test(pSuite, "test post field", testPostField) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test http 1.0 wrong password root", testHttp10UserRoot) == NULL) {
+    if (CU_add_test(pSuite, "test post field root", testPostFieldRoot) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test http 1.0 wrong user", testHttp10Password) == NULL) {
+    if (CU_add_test(pSuite, "test post password", testPostPassword) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test http 1.0 wrong user root", testHttp10PasswordRoot) == NULL) {
+    if (CU_add_test(pSuite, "test post password root", testPostPasswordRoot) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test http 1.0  both", testHttp10Both) == NULL) {
+    if (CU_add_test(pSuite, "test post user", testPostUser) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test with http 10 both root", testHttp10BothRoot) == NULL) {
+    if (CU_add_test(pSuite, "test post user root", testPostUserRoot) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test http 1.0  wrong", testHttp10Wrong) == NULL) {
+    if (CU_add_test(pSuite, "test post wrong", testPostWrong) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test with http 10 wrong root", testHttp10WrongRoot) == NULL) {
+    if (CU_add_test(pSuite, "test post wrong root", testPostWrongRoot) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
-    */
+
     CU_basic_set_mode(CU_BRM_VERBOSE);
     CU_basic_run_tests();
     /*

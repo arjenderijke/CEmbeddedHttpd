@@ -65,11 +65,11 @@ static size_t header_callback(char *buffer, size_t size,
 	    atoi(&buffer[strlen("Content-Length: ")]);
     }
     if (strncmp(buffer, "ETag: ", strlen("ETag: ")) == 0) {
-	etag_len = strlen(buffer) - strlen("ETag: ");
+	etag_len = strlen(buffer) - strlen("ETag: ") - 2;
 	((struct return_headers *) userdata)->etag =
 	    malloc(etag_len * sizeof(char));
-	strncpy(&buffer[strlen("ETag: ")],
-		((struct return_headers *) userdata)->etag,
+	strncpy(((struct return_headers *) userdata)->etag,
+		&buffer[strlen("ETag: ")],
 		etag_len);
     }
     return nitems * size;

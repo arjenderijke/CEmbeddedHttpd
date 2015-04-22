@@ -234,6 +234,746 @@ void testHttp10Root(void)
     CU_ASSERT(excess_found == 0);
 }
 
+void testHttp10Auth(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "arjen:arjen");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 0);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testHttp10AuthRoot(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888/");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "arjen:arjen");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 0);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testHttp10User(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "arjen:piet");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 0);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testHttp10UserRoot(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888/");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "arjen:piet");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 0);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testHttp10Password(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "piet:arjen");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 0);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testHttp10PasswordRoot(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888/");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "piet:arjen");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 0);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testHttp10Both(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "piet:piet");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 0);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testHttp10BothRoot(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888/");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "piet:piet");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 0);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testHttp10Wrong(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "piet:hallo");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 0);
+    CU_ASSERT(excess_found == 0);
+}
+
+void testHttp10WrongRoot(void)
+{
+    struct MHD_Daemon *daemon;
+    CURL *c;
+    char buf[2048];
+    struct CBC cbc;
+    CURLcode errornum;
+    int excess_found = 0;
+    long resp;
+    char *ct;
+    struct return_headers rh = { 0, 0, false, NULL };
+
+    cbc.buf = buf;
+    cbc.size = 2048;
+    cbc.pos = 0;
+
+    int listen_port = getPort();
+    CU_ASSERT(listen_port == 8888);
+
+    daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, listen_port,
+			       &handle_accept, NULL,
+			       &handle_request, NULL,
+			       MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+			       NULL, MHD_OPTION_END);
+
+    if (daemon == NULL)
+	return;
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, "http://localhost:8888/");
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
+    curl_easy_setopt (c, CURLOPT_DEBUGFUNCTION, &curlExcessFound);
+    curl_easy_setopt (c, CURLOPT_DEBUGDATA, &excess_found);
+    curl_easy_setopt (c, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+    curl_easy_setopt (c, CURLOPT_HEADERDATA, &rh);
+    curl_easy_setopt (c, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt (c, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "piet:hallo");
+    if (oneone)
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    else
+	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+
+    if ((errornum = curl_easy_perform (c)) != CURLE_OK) {
+	CU_ASSERT(errornum != 0);
+
+	curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &resp);
+	CU_ASSERT(resp == MHD_HTTP_HTTP_VERSION_NOT_SUPPORTED);
+
+	curl_easy_getinfo(c, CURLINFO_CONTENT_TYPE, &ct);
+	CU_ASSERT_PTR_EQUAL(ct, NULL);
+
+#if DEBUG
+	fprintf (stderr,
+		 "curl_easy_perform failed: `%s'\n",
+		 curl_easy_strerror (errornum));
+#endif
+	curl_easy_cleanup (c);
+	MHD_stop_daemon (daemon);
+	return;
+    }
+
+    curl_easy_cleanup (c);
+    MHD_stop_daemon (daemon);
+
+    CU_ASSERT(cbc.pos == 0);
+    CU_ASSERT(excess_found == 0);
+}
+
 int main()
 {
     oneone = 0;
@@ -258,47 +998,57 @@ int main()
 	CU_cleanup_registry();
 	return CU_get_error();
     }
-    /*
-    if (CU_add_test(pSuite, "test ip", testConnectIP) == NULL) {
+
+    if (CU_add_test(pSuite, "test http 1.0 auth", testHttp10Auth) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test ip root", testConnectIPRoot) == NULL) {
+    if (CU_add_test(pSuite, "test http 1.0 auth root", testHttp10AuthRoot) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test wrong port", testWrongPort) == NULL) {
+    if (CU_add_test(pSuite, "test http 1.0 wrong password", testHttp10User) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test wrong port root", testWrongPortRoot) == NULL) {
+    if (CU_add_test(pSuite, "test http 1.0 wrong password root", testHttp10UserRoot) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test with auth", testAuth) == NULL) {
+    if (CU_add_test(pSuite, "test http 1.0 wrong user", testHttp10Password) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test with http1", testHttp1) == NULL) {
+    if (CU_add_test(pSuite, "test http 1.0 wrong user root", testHttp10PasswordRoot) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test with http1 Wrong User", testHttp1WrongUser) == NULL) {
+    if (CU_add_test(pSuite, "test http 1.0  both", testHttp10Both) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
 
-    if (CU_add_test(pSuite, "test with http1 Wrong Passwd", testHttp1WrongPasswd) == NULL) {
+    if (CU_add_test(pSuite, "test with http 10 both root", testHttp10BothRoot) == NULL) {
 	CU_cleanup_registry();
 	return CU_get_error();
     }
-    */
+
+    if (CU_add_test(pSuite, "test http 1.0  wrong", testHttp10Wrong) == NULL) {
+	CU_cleanup_registry();
+	return CU_get_error();
+    }
+
+    if (CU_add_test(pSuite, "test with http 10 wrong root", testHttp10WrongRoot) == NULL) {
+	CU_cleanup_registry();
+	return CU_get_error();
+    }
+
     CU_basic_set_mode(CU_BRM_VERBOSE);
     CU_basic_run_tests();
     /*

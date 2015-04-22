@@ -17,7 +17,7 @@ AC_PROG_INSTALL
 AM_PROG_CC_C_O
 
 # Check for pkg-config version
-PKG_PROG_PKG_CONFIG([0.22])
+PKG_PROG_PKG_CONFIG([0.26])
 
 # Checks for libraries.
 have_microhttpd=no
@@ -71,10 +71,37 @@ if test "x{have_liburiparser}" = xno; then
 fi
 
 have_cunit=no
-AC_SEARCH_LIBS([MHD_start_daemon], [libcunit1], [have_cunit=yes])
+AC_SEARCH_LIBS([CU_registry_initialized], [cunit], [have_cunit=yes])
+
+AM_CONDITIONAL([HAVE_UNIT], [test "x${have_cunit}" = xyes])
+if test "x${have_cunit}" = xyes; then
+   AC_DEFINE([HAVE_UNIT], 1, [unittests enabled])
+fi
+
+have_libcurl=yes
+AC_ARG_ENABLE(libcurl,
+	AS_HELP_STRING([--with-libcurl=DIR],
+		[libcurl library is installed in DIR]),
+	have_libcurl="$withval")
+
+if test "x$have_libcurl" = xyes; then
+      PKG_CHECK_MODULES([CURL], [libcurl],
+      		[have_libcurl=yes],
+		[have_libcurl=no; why_have_libcurl="(libcurl not found)"])
+fi
+
+LIBCURL_MISSING="Please install libcurl 3 or later."
+
+AC_CHECK_LIB(curl, curl_version,, AC_MSG_ERROR(${LIBCURL_MISSING}))
+AC_CHECK_HEADER(curl/curl.h,, AC_MSG_ERROR(${LIBCURL_MISSING}))
+
+AM_CONDITIONAL([HAVE_CURL], [test "x${have_libcurl}" = xyes])
+if test "x${have_libcurl}" = xyes; then
+   AC_DEFINE([HAVE_CURL], 1, [libcurl available])
+fi
 
 AC_ARG_ENABLE([debug],
-	[ --enable-debug enable debug output],
+	[  --enable-debug enable debug output],
 	[debug=${enableval}], [debug=no])
 
 if test "x${debug}" = xyes; then
@@ -91,6 +118,7 @@ AC_CONFIG_FILES([Makefile
 		 libexamples/include/Makefile
 		 libexamples/Makefile
 		 libqueryhandler/include/Makefile
+		 libqueryhandler/unittest/Makefile
 		 libqueryhandler/Makefile
                  src/Makefile])
 AC_OUTPUT

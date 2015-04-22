@@ -3,11 +3,17 @@
 /* debug output enabled */
 #undef DEBUG
 
+/* libcurl available */
+#undef HAVE_CURL
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the `curl' library (-lcurl). */
+#undef HAVE_LIBCURL
 
 /* Define to 1 if you have the `uriparser' library (-luriparser). */
 #undef HAVE_LIBURIPARSER
@@ -41,6 +47,9 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
+
+/* unittests enabled */
+#undef HAVE_UNIT
 
 /* Define to 1 if the system has the type `_Bool'. */
 #undef HAVE__BOOL

@@ -8,7 +8,8 @@ if HAVE_CURL
     testpost \
     testbasic \
     testparams \
-    testparamget
+    testparamget \
+    testparampost
 endif
 
 TESTS = $(check_PROGRAMS)
@@ -45,6 +46,10 @@ testparamget_SOURCES = testparamget.c
 testparamget_CPPFLAGS = -I$(top_srcdir)/libqueryhandler/include -I$(top_srcdir)/libqueryhandler
 testparamget_LDADD = $(top_builddir)/libqueryhandler/libqueryhandler.la
 
+testparampost_SOURCES = testparampost.c
+testparampost_CPPFLAGS = -I$(top_srcdir)/libqueryhandler/include -I$(top_srcdir)/libqueryhandler
+testparampost_LDADD = $(top_builddir)/libqueryhandler/libqueryhandler.la
+
 CLEANFILES = cunit_testall-Listing.xml \
              cunit_testall-Results.xml \
              testmock \
@@ -54,4 +59,5 @@ CLEANFILES = cunit_testall-Listing.xml \
              testpost \
              testbasic \
              testparams \
-             testparamget
+             testparamget \
+             testparampost

@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.69])
+AC_PREREQ([2.68])
 AC_INIT([CEmbeddedHttpd], [0.0.1], [arjenderijke@gmail.com])
 AM_INIT_AUTOMAKE
 LT_PREREQ([2.4.2])

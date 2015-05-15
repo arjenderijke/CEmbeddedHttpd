@@ -13,7 +13,6 @@ AC_CONFIG_MACRO_DIR([m4])
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
-#AC_PROG_RANLIB
 AM_PROG_CC_C_O
 
 # Check for pkg-config version

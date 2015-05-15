@@ -2,7 +2,7 @@ language: c
 compiler:
   - gcc
 # Change this to your needs
-install: autoreconf
+install: autoreconf --install && automake --add-missing --copy
 script: ./configure && make && make check
 notifications:
   email:

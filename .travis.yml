@@ -2,7 +2,7 @@ language: c
 compiler:
   - gcc
 # Change this to your needs
-before_install: dpkg -l autoconf
+before_install: mkdir m4 && dpkg -l autoconf
 install: autoheader && autoreconf --install && automake --add-missing --copy
 script: ./configure && make && make check
 notifications:

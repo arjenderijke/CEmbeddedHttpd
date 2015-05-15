@@ -3,7 +3,7 @@ compiler:
   - gcc
 # Change this to your needs
 before_install: mkdir m4
-install: autoreconf --install && autoheader && automake --add-missing --copy
+install: aclocal && autoheader && autoreconf --install && automake --add-missing --copy
 script: ./configure && make && make check
 notifications:
   email:

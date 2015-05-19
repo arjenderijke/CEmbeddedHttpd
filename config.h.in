@@ -51,9 +51,6 @@
 /* unittests enabled */
 #undef HAVE_UNIT
 
-/* Define to 1 if the system has the type `_Bool'. */
-#undef HAVE__BOOL
-
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
 #undef LT_OBJDIR

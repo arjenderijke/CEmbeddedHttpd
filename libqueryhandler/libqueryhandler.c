@@ -4,6 +4,8 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <microhttpd.h>
 #include <uriparser/Uri.h>
@@ -160,6 +162,45 @@ version_page(char ** result_page, const int returntype)
 }
 
 static int
+favicon_ico(char ** result_page, int * iconsize)
+{
+    char cwd[256];
+    char icofile[512];
+
+    FILE *file;
+    unsigned long IconLen;
+    /*
+     * [TODO]: handle all error codes, see man 3 getcwd
+     *         read filename from setting
+     */
+    getcwd((char *)&cwd[0], 256);
+    sprintf((char *)&icofile[0], "%s/picture.png", cwd);
+
+    file = fopen(icofile, "rb");
+    if (!file) {
+	fprintf(stderr, "Unable to open file");
+	return 1;
+    }
+
+    fseek(file, 0, SEEK_END);
+    IconLen=ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    *result_page = (char *) malloc((IconLen + 1) * sizeof(char));
+    if (!*result_page) {
+	fprintf(stderr, "Memory allocation failed!");
+	fclose(file);
+	return 1;
+    }
+
+    fread(*result_page, IconLen, 1, file);
+    fclose(file);
+
+    *iconsize = IconLen;
+    return 0;
+}
+
+static int
 error_page(char ** result_page, const int status_code, const int returntype, const bool quiet)
 {
     char * errorHTML = "<html>"
@@ -223,6 +264,11 @@ setContentTypeHeader(const struct MHD_Response * response, const int returntype)
 	ret = MHD_add_response_header (response,
 				       MHD_HTTP_HEADER_CONTENT_TYPE,
 				       ACCEPT_CSV);
+	break;
+    case RETURN_ICO:
+	ret = MHD_add_response_header (response,
+				       MHD_HTTP_HEADER_CONTENT_TYPE,
+				       ACCEPT_ICO);
 	break;
     case RETURN_HTML:
     default:
@@ -299,6 +345,9 @@ handle_request_uri(const char *url, int *use_request_handler)
 		}
 		if (strcmp(uri.pathHead->text.first, HTTP_API_MCLIENT_PATH) == 0) {
 		    *use_request_handler = HTTP_API_HANDLE_MCLIENT;
+		}
+		if (strcmp(uri.pathHead->text.first, HTTP_API_FAVICON_PATH) == 0) {
+		    *use_request_handler = HTTP_API_HANDLE_FAVICON;
 		}
 		if (*use_request_handler == HTTP_API_HANDLE_ERROR) {
 		    *use_request_handler = HTTP_API_HANDLE_NOTFOUND;
@@ -528,7 +577,8 @@ handle_request (void *cls, struct MHD_Connection *connection,
     struct MHD_Response *response;
     int ret;
     struct connection_info_struct *con_info;
-  
+    int iconsize = 0;
+
     int use_request_handler = HTTP_API_HANDLE_ERROR;
     int return_code = MHD_HTTP_OK;
     int return_content = RETURN_HTML;
@@ -544,7 +594,7 @@ handle_request (void *cls, struct MHD_Connection *connection,
     // [TODO]: read setting from config
     bool handle_http_cache = true;
     
-    struct url_query_statements uqs = { 0, 0, false, false, QUERY_LANGUAGE_SQL, NULL, false, 0 };
+    struct url_query_statements uqs = { 0, 0, false, false, QUERY_LANGUAGE_SQL, NULL, false, false, 0 };
     struct request_header_list rhl = { 0, 0, NULL, NULL, NULL, NULL };
 
 #if DEBUG
@@ -730,6 +780,17 @@ handle_request (void *cls, struct MHD_Connection *connection,
 	return_code = MHD_HTTP_NOT_IMPLEMENTED;
 	error_page(&page, return_code, return_content, quiet_error);
 	break;
+    case HTTP_API_HANDLE_FAVICON:
+#if DEBUG
+	printf ("debug: favicon\n");
+#endif
+	if (favicon_ico(&page, &iconsize) == 0) {
+	    return_content = RETURN_ICO;
+	} else {
+	    return_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+	    error_page(&page, return_code, return_content, quiet_error);
+	}
+	break;
     case HTTP_API_HANDLE_NOTFOUND:
 	/*
 	 * If path is not found, stop processing and
@@ -801,9 +862,19 @@ handle_request (void *cls, struct MHD_Connection *connection,
      */
     if (page != NULL) {
 	free_headers(&rhl);
-	response =
-	    MHD_create_response_from_buffer (strlen (page), (void *) page, 
-					     MHD_RESPMEM_MUST_FREE);
+	/*
+	 * If iconsize is not null, we are getting the favicon and
+	 * cannot use strlen to determine the size of the buffer.
+	 */
+	if (iconsize == 0) {
+	    response =
+		MHD_create_response_from_buffer (strlen (page), (void *) page,
+						 MHD_RESPMEM_MUST_FREE);
+	} else {
+	    response =
+		MHD_create_response_from_buffer (iconsize, (void *) page,
+						 MHD_RESPMEM_MUST_FREE);
+	}
 	setContentTypeHeader(response, return_content);
 	ret = MHD_queue_response (connection, return_code, response);
 	if (ret == MHD_NO)

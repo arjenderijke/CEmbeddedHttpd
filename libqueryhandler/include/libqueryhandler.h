@@ -9,6 +9,7 @@
 #define HTTP_API_LANGUAGE_PATH "language"
 #define HTTP_API_MCLIENT_PATH "mclient"
 #define HTTP_API_FORMAT_PATH "format"
+#define HTTP_API_FAVICON_PATH "favicon.ico"
 
 /*
  * For now use short option "h" for help. Later we might use 
@@ -32,11 +33,13 @@
 #define HTTP_API_HANDLE_MCLIENT 3
 #define HTTP_API_HANDLE_NOTFOUND 4
 #define HTTP_API_HANDLE_BADREQUEST 5
+#define HTTP_API_HANDLE_FAVICON 6
 
 #define ACCEPT_HTML "text/html"
 #define ACCEPT_XML "text/xml"
 #define ACCEPT_JSON "application/json"
 #define ACCEPT_CSV "text/csv"
+#define ACCEPT_ICO "image/x-icon"
 #define ACCEPT_ALL "*/*"
 
 #define QUERY_FORMAT_HTML "html"
@@ -48,6 +51,7 @@
 #define RETURN_XML 1
 #define RETURN_JSON 2
 #define RETURN_CSV 3
+#define RETURN_ICO 4
 
 #define EMPTY ""
 
@@ -67,6 +71,7 @@ struct url_query_statements {
     int query_language;
     char * query_statement;
     bool query_mclient;
+    bool query_favicon;
     int query_format;
 };
 

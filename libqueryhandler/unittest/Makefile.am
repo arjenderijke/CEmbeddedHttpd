@@ -10,7 +10,8 @@ if HAVE_CURL
     testparams \
     testparamget \
     testparampost \
-    testheader
+    testheader \
+    testfavicon
 endif
 
 TESTS = $(check_PROGRAMS)
@@ -55,6 +56,10 @@ testheader_SOURCES = testheader.c
 testheader_CPPFLAGS = -I$(top_srcdir)/libqueryhandler/include -I$(top_srcdir)/libqueryhandler
 testheader_LDADD = $(top_builddir)/libqueryhandler/libqueryhandler.la
 
+testfavicon_SOURCES = testfavicon.c
+testfavicon_CPPFLAGS = -I$(top_srcdir)/libqueryhandler/include -I$(top_srcdir)/libqueryhandler
+testfavicon_LDADD = $(top_builddir)/libqueryhandler/libqueryhandler.la
+
 CLEANFILES = cunit_testall-Listing.xml \
              cunit_testall-Results.xml \
              testmock \
@@ -66,4 +71,5 @@ CLEANFILES = cunit_testall-Listing.xml \
              testparams \
              testparamget \
              testparampost \
-             testheader
+             testheader \
+             testfavicon

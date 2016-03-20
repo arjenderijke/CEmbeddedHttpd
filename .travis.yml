@@ -4,7 +4,9 @@ language: c
 compiler:
   - gcc
 # Change this to your needs
-before_install: mkdir m4
+before_install:
+  - sudo apt-get -qq update
+  - mkdir m4
 install: aclocal && autoheader && autoreconf --install && automake --add-missing --copy
 script: ./configure && make && make check
 notifications:
